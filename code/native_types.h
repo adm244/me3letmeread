@@ -28,21 +28,19 @@ OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _NATIVE_TYPES_H_
 #define _NATIVE_TYPES_H_
 
-//FIX(adm244): swap topic and dialog flags
+enum BioConversation_DialogFlags {
+  //Dialog_Skip = 0x4,
+  Dialog_Ambient = 0x80,
+  //Dialog_IsSpeaking = 0x100,
+  Dialog_Patch_ManualSkip = 0x40000000,
+};
 
 enum BioConversation_TopicFlags {
-  Topic_Skip = 0x4,
-  Topic_Ambient = 0x40,
-  Topic_IsSpeaking = 0x100,
-  Topic_Patch_ManualSkip = 0x40000000,
+  Topic_IsVoicePlaying = 0x10,
+  Topic_Patch_DialogWheelActive = 0x40000000,
 };
 
-enum BioConversation_DialogFlags {
-  Dialog_IsVoicePlaying = 0x10,
-  Dialog_Patch_DialogWheelActive = 0x40000000,
-};
-
-enum BioConversationEntry_Flags {
+/*enum BioConversationEntry_Flags {
   Entry_NonTextline = 0x2,
 };
 
@@ -98,11 +96,11 @@ struct BioConversationEntry {
   u8 unk30[0x44-0x30];
   BioConversationEntryReply *replyList; // 0x44
   u8 unk48[0x68-0x48];
-}; // 0x68
+}; // 0x68*/
 
 struct BioConversation {
   void *vtable;
-  u8 unk04[0x48-0x4];
+  /*u8 unk04[0x48-0x4];
   BioConversationEntry *entryList; // 0x48
   u32 unk4C;
   u32 unk50;
@@ -125,12 +123,17 @@ struct BioConversation {
   u32 topicFlags; // 0xD4
   u32 unkD8[30];
   u32 dialogFlags; // 0x150
-  u8 unk154[0x1FC-0x154];
-}; // 0x1FC
+  u8 unk154[0x1FC-0x154];*/
+  u8 unk04[0xCC - 0x4];
+  u32 dialogFlags; // 0xCC
+  u8 unkD0[0x1A8 - 0xD0];
+  u32 topicFlags; // 0x1A8
+  u8 unk1AC[0x238 - 0x1AC];
+}; // 0x238?
 
 typedef bool (__thiscall *_BioConversation_NeedToDisplayReplies)(BioConversation *conversation);
 typedef bool (__thiscall *_BioConversation_IsAmbient)(BioConversation *conversation);
-typedef BioString * (__thiscall *_BioConversation_GetReplyTextInternal)
-(BioConversation *conversation, BioString *dest, int replyIndex, int unk);
+/*typedef BioString * (__thiscall *_BioConversation_GetReplyText)
+(BioConversation *conversation, BioString *dest, int replyIndex, int unk);*/
 
 #endif

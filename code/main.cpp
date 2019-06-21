@@ -37,44 +37,40 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 internal _BioConversation_NeedToDisplayReplies BioConversation_NeedToDisplayReplies = 0;
 internal _BioConversation_IsAmbient BioConversation_IsAmbient = 0;
-internal _BioConversation_GetReplyTextInternal BioConversation_GetReplyTextInternal = (_BioConversation_GetReplyTextInternal)0x10CD66F0;
+//internal _BioConversation_GetReplyTextInternal BioConversation_GetReplyText = (_BioConversation_GetReplyText)0x00B35280;
 
 internal bool ShouldReply(BioConversation *conversation)
 {
-  return (conversation->dialogFlags & Dialog_Patch_DialogWheelActive);
+  return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
 }
 
 internal bool IsSkipped(BioConversation *conversation)
 {
-  //FIX(adm244): NeedToDisplayReplies() modifies timers (by adding 0.5)
-  // it introduces bugs with an abrupt sound (it is clearly when switching to "wait for a reply" state)
-  // Possible solution is to hook the positive result of a function (or recreate it)
-  
   //NOTE(adm244): there's still some sound clicking and poping
   // is this a patch problem or game itself comes with these bugs?
   
   //NOTE(adm244): fixes infinite-loading bug
-  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
+  /*BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
   if (entry.flags & Entry_NonTextline) {
     return true;
-  }
+  }*/
   
   //NOTE(adm244): skipes "empty" replies
-  if (conversation->currentReplyIndex >= 0) {
+  /*if (conversation->currentReplyIndex >= 0) {
     BioConversationEntryReply entryReply = entry.replyList[conversation->currentReplyIndex];
   
     BioString replyText = {0};
-    BioConversation_GetReplyTextInternal(conversation, &replyText, entryReply.index, 0);
+    BioConversation_GetReplyText(conversation, &replyText, entryReply.index, 1);
     
     //NOTE(adm244): probably should check if string contains only whitespaces or empty
     if (replyText.length < 3) {
       return true;
     }
-  }
+  }*/
   
   if (!BioConversation_IsAmbient(conversation) && !ShouldReply(conversation)) {
-    bool isSkipped = (conversation->topicFlags & Topic_Patch_ManualSkip);
-    conversation->topicFlags &= ~Topic_Patch_ManualSkip;
+    bool isSkipped = (conversation->dialogFlags & Dialog_Patch_ManualSkip);
+    conversation->dialogFlags &= ~Dialog_Patch_ManualSkip;
     return isSkipped;
   }
   
@@ -83,14 +79,9 @@ internal bool IsSkipped(BioConversation *conversation)
 
 internal void SkipNode(BioConversation *conversation)
 {
-  // (NOT speaking) AND DialogWheelActive
-  // (!Speaking && DialogWheelActive)
-  // !(!Speaking && DialogWheelActive)
-  // Speaking || !DisalogWheelActive
-  
-  if ((conversation->dialogFlags & Dialog_IsVoicePlaying)
-    || !(conversation->dialogFlags & Dialog_Patch_DialogWheelActive)) {
-    conversation->topicFlags |= Topic_Patch_ManualSkip;
+  if ((conversation->topicFlags & Topic_IsVoicePlaying)
+    || !(conversation->topicFlags & Topic_Patch_DialogWheelActive)) {
+    conversation->dialogFlags |= Dialog_Patch_ManualSkip;
   }
 }
 
@@ -110,7 +101,7 @@ internal __declspec(naked) void IsSkipped_Hook()
     push ebp
     push esp
     
-    push esi
+    push ebx
     call IsSkipped
     add esp, 4
     
@@ -128,9 +119,9 @@ internal __declspec(naked) void IsSkipped_Hook()
     jmp [skip_jz_dest_address]
     
   skip_dialog:
-    test ebp, ebp
+    test esi, esi
     jnz jnz_jump
-    mov eax, [esp + 24h]
+    mov eax, [esp + 20h]
     jmp [skip_post_jnz_address]
     
   jnz_jump:
@@ -141,28 +132,39 @@ internal __declspec(naked) void IsSkipped_Hook()
 internal __declspec(naked) void SkipNode_Hook()
 {
   _asm {
-    pushad
+    push ebx
+    push esi
+    push edi
+    push ebp
+    push esp
+    
     push ecx
     call SkipNode
-    add esp, 4
-    popad
+    pop ecx
     
+    pop esp
+    pop ebp
+    pop edi
+    pop esi
+    pop ebx
+    
+    mov eax, [skip_node_mov_address]
+    mov eax, [eax]
     push esi
-    mov esi, ecx
-    mov ecx, [skip_node_mov_address]
-    mov ecx, [ecx]
+    push edi
+    mov edi, ecx
     
-    mov eax, skip_node_address
-    add eax, 9
-    jmp eax
+    mov edx, skip_node_address
+    add edx, 9
+    jmp edx
   }
 }
 
 internal __declspec(naked) void RepliesActive_Hook()
 {
   _asm {
-    mov eax, Dialog_Patch_DialogWheelActive
-    or [esi+150h], eax
+    mov eax, Topic_Patch_DialogWheelActive
+    or [esi+1A8h], eax
     
     mov eax, 1
     pop esi
@@ -173,9 +175,9 @@ internal __declspec(naked) void RepliesActive_Hook()
 internal __declspec(naked) void RepliesInactive_Hook()
 {
   _asm {
-    mov eax, Dialog_Patch_DialogWheelActive
+    mov eax, Topic_Patch_DialogWheelActive
     not eax
-    and [esi+150h], eax
+    and [esi+1A8h], eax
     
     xor eax, eax
     pop esi
@@ -198,6 +200,7 @@ internal __declspec(naked) void RepliesInactive_Hook()
       - Detour address at (JNZ - 2) (0x00B32E09)
     - UBioConversation::GetReplyText() (0x00B35280)
       - UBioConversation::GetReplyTextInternal() (0x00B353B0)
+    - UBioConversation::SkipNode() (0x00B332C0)
   
   TODO(adm244): verify these types:
     - BioString
@@ -217,37 +220,45 @@ internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
     //TODO(adm244): get addresses by a signature search
     
     // get function pointers for BioConversation object
-    void *bio_conversation_vtable = (void *)0x118FFD20;
-    BioConversation_NeedToDisplayReplies = (_BioConversation_NeedToDisplayReplies)(*((u32 *)bio_conversation_vtable + 105));
-    BioConversation_IsAmbient = (_BioConversation_IsAmbient)(*((u32 *)bio_conversation_vtable + 93));
+    void *bio_conversation_vtable = (void *)0x0117CC48;
+    BioConversation_NeedToDisplayReplies = (_BioConversation_NeedToDisplayReplies)(*((u32 *)bio_conversation_vtable + 102));
+    BioConversation_IsAmbient = (_BioConversation_IsAmbient)(*((u32 *)bio_conversation_vtable + 90));
 #ifdef DEBUG
-    assert((u64)BioConversation_NeedToDisplayReplies == 0x1090BC67);
-    assert((u64)BioConversation_IsAmbient == 0x10950A8D);
+    assert((u64)BioConversation_NeedToDisplayReplies == 0x00B37030);
+    assert((u64)BioConversation_IsAmbient == 0x00B36FA0);
 #endif
     
     // hook NeedToDisplayReplies function
-    void *replies_active_patch_address = (u8 *)RIPRel32(BioConversation_NeedToDisplayReplies, 1) + 0x3B;
-    void *replies_inactive_patch_address = (u8 *)RIPRel32(BioConversation_NeedToDisplayReplies, 1) + 0x71;
+    void *replies_active_patch_address = (u8 *)BioConversation_NeedToDisplayReplies + 0x49;
+    void *replies_inactive_patch_address = (u8 *)BioConversation_NeedToDisplayReplies + 0x81;
     
     WriteDetour(replies_active_patch_address, &RepliesActive_Hook, 2);
     WriteDetour(replies_inactive_patch_address, &RepliesInactive_Hook, 0);
     
     // hook UpdateConversation function
-    void *skip_jz_address = (void *)0x10D13FF5;
+    void *skip_jz_address = (void *)0x00B32E07;
     skip_jz_dest_address = RIPRel8(skip_jz_address, 1);
+#ifdef DEBUG
+    assert((u64)skip_jz_dest_address == 0x00B32E64);
+#endif
     
     void *skip_address = (void *)((u64)skip_jz_address + 2);
     void *skip_jnz_address = (void *)((u64)skip_address + 2);
     skip_jnz_dest_address = RIPRel8(skip_jnz_address, 1);
     skip_post_jnz_address = (void *)((u64)skip_jnz_address + 6);
+#ifdef DEBUG
+    assert((u64)skip_jnz_address == 0x00B32E0B);
+    assert((u64)skip_jnz_dest_address == 0x00B32E3A);
+    assert((u64)skip_address == 0x00B32E09);
+#endif
 
     WriteDetour(skip_address, &IsSkipped_Hook, 3);
     
     // hook SkipNode function
-    skip_node_address = (void *)0x10CC9060;
-    skip_node_mov_address = (void *)(*((u32 *)((u8 *)skip_node_address + 5)));
+    skip_node_address = (void *)0x00B332C0;
+    skip_node_mov_address = (void *)(*((u32 *)((u8 *)skip_node_address + 1)));
 #ifdef DEBUG
-    assert((u64)skip_node_mov_address == 0x11BC1A44);
+    assert((u64)skip_node_mov_address == 0x0126779C);
 #endif
     
     WriteDetour(skip_node_address, &SkipNode_Hook, 4);
