@@ -183,6 +183,33 @@ internal __declspec(naked) void RepliesInactive_Hook()
   }
 }
 
+/*
+  TODO(adm244): find these places:
+    - UBioConversation::vtable (0x0117CC48)
+    - UBioConversation::NeedToDisplayReplies() (0x00B37030)
+      - Replies active (0x00B37079)
+      - Replies inactive (0x00B370B1)
+    - UBioConversation::IsAmbient() (0x00B36FA0)
+    - UBioConversation::UpdateConversation() (0x00B32880)
+      - JZ instruction (0x00B32E07)
+      - JZ destination (0x00B32E64)
+      - JNZ instruction (0x00B32E0B)
+      - JNZ destination (0x00B32E3A)
+      - Detour address at (JNZ - 2) (0x00B32E09)
+    - UBioConversation::GetReplyText() (0x00B35280)
+      - UBioConversation::GetReplyTextInternal() (0x00B353B0)
+  
+  TODO(adm244): verify these types:
+    - BioString
+    - UBioConversation
+    - UBioConversationReply
+    - UBioConversationEntry
+    - UBioConversationEntryReply
+    - UBioConversation_DialogFlags
+    - UBioConversation_TopicFlags
+    - UBioConversationEntry_Flags
+*/
+
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
 {
   if( reason == DLL_PROCESS_ATTACH )
