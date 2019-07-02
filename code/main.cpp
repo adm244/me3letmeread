@@ -49,9 +49,6 @@ internal bool IsSkipped(BioConversation *conversation)
   //NOTE(adm244): there's still some sound clicking and poping
   // is this a patch problem or game itself comes with these bugs?
   
-  //TODO(adm244): investigate why certain dialog entries are still skipped automaticaly
-  // Omega intro scene at the docks, the very first salarian line
-  
   //NOTE(adm244): fixes infinite-loading bug
   BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
   if (entry.flags & Entry_NonTextline) {
@@ -82,6 +79,8 @@ internal bool IsSkipped(BioConversation *conversation)
 
 internal void SkipNode(BioConversation *conversation)
 {
+  //TODO(adm244): ignore unskippable dialog topics
+  
   if ((conversation->topicFlags & Topic_IsVoicePlaying)
     || !(conversation->topicFlags & Topic_Patch_DialogWheelActive)) {
     conversation->dialogFlags |= Dialog_Patch_ManualSkip;
@@ -188,34 +187,6 @@ internal __declspec(naked) void RepliesInactive_Hook()
   }
 }
 
-/*
-  TODO(adm244): find these places:
-    - UBioConversation::vtable (0x0117CC48)
-    - UBioConversation::NeedToDisplayReplies() (0x00B37030)
-      - Replies active (0x00B37079)
-      - Replies inactive (0x00B370B1)
-    - UBioConversation::IsAmbient() (0x00B36FA0)
-    - UBioConversation::UpdateConversation() (0x00B32880)
-      - JZ instruction (0x00B32E07)
-      - JZ destination (0x00B32E64)
-      - JNZ instruction (0x00B32E0B)
-      - JNZ destination (0x00B32E3A)
-      - Detour address at (JNZ - 2) (0x00B32E09)
-    - UBioConversation::GetReplyText() (0x00B35280)
-      - UBioConversation::GetReplyTextInternal() (0x00B353B0)
-    - UBioConversation::SkipNode() (0x00B332C0)
-  
-  TODO(adm244): verify these types:
-    - BioString
-    - UBioConversation
-    - UBioConversationReply
-    - UBioConversationEntry
-    - UBioConversationEntryReply
-    - UBioConversation_DialogFlags
-    - UBioConversation_TopicFlags
-    - UBioConversationEntry_Flags
-*/
-
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
 {
   if( reason == DLL_PROCESS_ATTACH )
@@ -268,6 +239,11 @@ internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
 #endif
     
     WriteDetour(skip_node_address, &SkipNode_Hook, 4);
+    
+    // patch BioEvtSysTrackVOElements so it won't call SkipNode
+    void *bio_event_vo_jb_address = (void *)(0x00AA23BF);
+    char *jmp8_opcode = "\xEB";
+    WriteMemory(bio_event_vo_jb_address, jmp8_opcode, 1);
   }
 
   return TRUE;

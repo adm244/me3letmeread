@@ -31,6 +31,27 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define DETOUR_LENGTH 5
 //#define DETOUR_TEMP_CODE_SIZE 512
 
+internal bool WriteMemory(void *dest, void *buffer, int length)
+{
+  DWORD oldProtection;
+  BOOL result = VirtualProtect(dest, length, PAGE_EXECUTE_READWRITE, &oldProtection);
+  if (!result) {
+    return false;
+  }
+  
+  /*for (int i = 0; i < length; ++i) {
+    ((u8 *)dest)[i] = ((u8 *)buffer)[i];
+  }*/
+  memcpy(dest, buffer, length);
+  
+  result = VirtualProtect(dest, length, oldProtection, &oldProtection);
+  if (!result) {
+    return false;
+  }
+  
+  return true;
+}
+
 internal void * RIPRel8(void *src, u8 opcode_length)
 {
   i8 offset = *((i8 *)((u64)src + opcode_length));
