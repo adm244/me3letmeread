@@ -37,7 +37,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 internal _BioConversation_NeedToDisplayReplies BioConversation_NeedToDisplayReplies = 0;
 internal _BioConversation_IsAmbient BioConversation_IsAmbient = 0;
-//internal _BioConversation_GetReplyTextInternal BioConversation_GetReplyText = (_BioConversation_GetReplyText)0x00B35280;
+internal _BioConversation_GetReplyText_Internal BioConversation_GetReplyText_Internal = (_BioConversation_GetReplyText_Internal)0x00B32440;
 
 internal bool ShouldReply(BioConversation *conversation)
 {
@@ -49,24 +49,27 @@ internal bool IsSkipped(BioConversation *conversation)
   //NOTE(adm244): there's still some sound clicking and poping
   // is this a patch problem or game itself comes with these bugs?
   
+  //TODO(adm244): investigate why certain dialog entries are still skipped automaticaly
+  // Omega intro scene at the docks, the very first salarian line
+  
   //NOTE(adm244): fixes infinite-loading bug
-  /*BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
+  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
   if (entry.flags & Entry_NonTextline) {
     return true;
-  }*/
+  }
   
   //NOTE(adm244): skipes "empty" replies
-  /*if (conversation->currentReplyIndex >= 0) {
+  if (conversation->currentReplyIndex >= 0) {
     BioConversationEntryReply entryReply = entry.replyList[conversation->currentReplyIndex];
   
     BioString replyText = {0};
-    BioConversation_GetReplyText(conversation, &replyText, entryReply.index, 1);
+    BioConversation_GetReplyText_Internal(1, entryReply.index, conversation, &replyText);
     
     //NOTE(adm244): probably should check if string contains only whitespaces or empty
     if (replyText.length < 3) {
       return true;
     }
-  }*/
+  }
   
   if (!BioConversation_IsAmbient(conversation) && !ShouldReply(conversation)) {
     bool isSkipped = (conversation->dialogFlags & Dialog_Patch_ManualSkip);

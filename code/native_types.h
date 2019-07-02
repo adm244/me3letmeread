@@ -40,7 +40,7 @@ enum BioConversation_TopicFlags {
   Topic_Patch_DialogWheelActive = 0x40000000,
 };
 
-/*enum BioConversationEntry_Flags {
+enum BioConversationEntry_Flags {
   Entry_NonTextline = 0x2,
 };
 
@@ -82,7 +82,8 @@ struct BioConversationEntryReply {
   u32 unk8;
   u32 unkC;
   u32 unk10;
-  u32 category; //??? 0x14
+  // 0x0 - Defualt, 0x5 - Investigate
+  u32 category; // 0x14
 }; // 0x18
 
 //NOTE(adm244): same as BioConversationReply, but with a BioString appended?
@@ -96,7 +97,7 @@ struct BioConversationEntry {
   u8 unk30[0x44-0x30];
   BioConversationEntryReply *replyList; // 0x44
   u8 unk48[0x68-0x48];
-}; // 0x68*/
+}; // 0x68
 
 struct BioConversation {
   void *vtable;
@@ -124,7 +125,19 @@ struct BioConversation {
   u32 unkD8[30];
   u32 dialogFlags; // 0x150
   u8 unk154[0x1FC-0x154];*/
-  u8 unk04[0xCC - 0x4];
+  u8 unk04[0x48 - 0x4];
+  BioConversationEntry *entryList; // 0x48
+  u32 unk4C;
+  u32 unk50;
+  BioConversationReply *replyList; // 0x54
+  u8 unk58[0x8C - 0x58];
+  i32 currentEntryIndex; // 0x8C
+  u32 unk90;
+  void *unk94;
+  u8 unk98[0xC0 - 0x98];
+  i32 currentReplyIndex; // 0xC0
+  u32 unkC4;
+  u32 unkC8;
   u32 dialogFlags; // 0xCC
   u8 unkD0[0x1A8 - 0xD0];
   u32 topicFlags; // 0x1A8
@@ -133,7 +146,7 @@ struct BioConversation {
 
 typedef bool (__thiscall *_BioConversation_NeedToDisplayReplies)(BioConversation *conversation);
 typedef bool (__thiscall *_BioConversation_IsAmbient)(BioConversation *conversation);
-/*typedef BioString * (__thiscall *_BioConversation_GetReplyText)
-(BioConversation *conversation, BioString *dest, int replyIndex, int unk);*/
+typedef BioString * (__fastcall *_BioConversation_GetReplyText_Internal)
+(int unk, int replyIndex, BioConversation *conversation, BioString *dest);
 
 #endif
