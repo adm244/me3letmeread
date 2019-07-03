@@ -28,8 +28,12 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define PSAPI_VERSION 1
 #include <windows.h>
 #include <psapi.h>
-#include <assert.h>
 #include <stdio.h>
+
+#ifndef DEBUG
+#define NDEBUG
+#endif
+#include <assert.h>
 
 #include "types.h"
 #include "detours.cpp"
@@ -204,10 +208,9 @@ internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
     void *bio_conversation_vtable = (void *)0x0117DF30;
     BioConversation_NeedToDisplayReplies = (_BioConversation_NeedToDisplayReplies)(*((u32 *)bio_conversation_vtable + 102));
     BioConversation_IsAmbient = (_BioConversation_IsAmbient)(*((u32 *)bio_conversation_vtable + 90));
-#ifdef DEBUG
+    
     assert((u64)BioConversation_NeedToDisplayReplies == 0x00B340C0);
     assert((u64)BioConversation_IsAmbient == 0x00B34030);
-#endif
     
     // hook NeedToDisplayReplies function
     void *replies_active_patch_address = (u8 *)BioConversation_NeedToDisplayReplies + 0x49;
@@ -219,31 +222,25 @@ internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
     // hook UpdateConversation function
     void *skip_jz_address = (void *)0x00B2FE97;
     skip_jz_dest_address = RIPRel8(skip_jz_address, 1);
-#ifdef DEBUG
     assert((u64)skip_jz_dest_address == 0x00B2FEF4);
-#endif
     
     void *skip_address = (void *)((u64)skip_jz_address + 2);
     void *skip_jnz_address = (void *)((u64)skip_address + 2);
     skip_jnz_dest_address = RIPRel8(skip_jnz_address, 1);
     skip_post_jnz_address = (void *)((u64)skip_jnz_address + 6);
-#ifdef DEBUG
+    
     assert((u64)skip_jnz_address == 0x00B2FE9B);
     assert((u64)skip_jnz_dest_address == 0x00B2FECA);
     assert((u64)skip_address == 0x00B2FE99);
-#endif
-
+    
     WriteDetour(skip_address, &IsSkipped_Hook, 3);
     
     // hook SkipNode function
     skip_node_address = (void *)(*((u32 *)((u8 *)bio_conversation_vtable + 0x160)));
-#ifdef DEBUG
     assert((u64)skip_node_address == 0x00B30350);
-#endif
+    
     skip_node_mov_address = (void *)(*((u32 *)((u8 *)skip_node_address + 1)));
-#ifdef DEBUG
     assert((u64)skip_node_mov_address == 0x0126A7BC);
-#endif
     
     WriteDetour(skip_node_address, &SkipNode_Hook, 4);
     

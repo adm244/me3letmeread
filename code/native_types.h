@@ -28,6 +28,8 @@ OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _NATIVE_TYPES_H_
 #define _NATIVE_TYPES_H_
 
+#define assert_size(obj, size) static_assert(sizeof(obj) == size, "Size of " #obj " should be " #size);
+
 enum BioConversation_DialogFlags {
   //Dialog_Skip = 0x4,
   Dialog_Ambient = 0x80,
@@ -44,11 +46,14 @@ enum BioConversationEntry_Flags {
   Entry_NonTextline = 0x2,
 };
 
+#pragma pack(1)
+
 struct BioString {
   u16 *text; // 0x0
   u32 length; // 0x4
   u32 capacity; //??? 0x8
 }; // 0xC
+assert_size(BioString, 0xC)
 
 struct BioConversationReply {
   u32 textRefId; // 0x0
@@ -75,6 +80,7 @@ struct BioConversationReply {
   u32 listenerIndex;
   u32 unk58;
 }; // 0x5C
+assert_size(BioConversationReply, 0x5C)
 
 struct BioConversationEntryReply {
   u32 index; // 0x0
@@ -85,6 +91,7 @@ struct BioConversationEntryReply {
   // 0x0 - Defualt, 0x5 - Investigate
   u32 category; // 0x14
 }; // 0x18
+assert_size(BioConversationEntryReply, 0x18)
 
 //NOTE(adm244): same as BioConversationReply, but with a BioString appended?
 struct BioConversationEntry {
@@ -102,6 +109,7 @@ struct BioConversationEntry {
   u32 unk60;
   u32 unk64;
 }; // 0x68
+assert_size(BioConversationEntry, 0x68)
 
 struct BioConversation {
   void *vtable;
@@ -147,6 +155,9 @@ struct BioConversation {
   u32 topicFlags; // 0x1A8
   u8 unk1AC[0x238 - 0x1AC];
 }; // 0x238?
+assert_size(BioConversation, 0x238)
+
+#pragma pack(pop)
 
 typedef bool (__thiscall *_BioConversation_NeedToDisplayReplies)(BioConversation *conversation);
 typedef bool (__thiscall *_BioConversation_IsAmbient)(BioConversation *conversation);
