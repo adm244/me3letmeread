@@ -79,7 +79,14 @@ internal bool IsSkipped(BioConversation *conversation)
 
 internal void SkipNode(BioConversation *conversation)
 {
-  //TODO(adm244): ignore unskippable dialog topics
+  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
+  if (!entry.skippable && (conversation->topicFlags & Topic_IsVoicePlaying)
+    && (conversation->currentReplyIndex < 0)) {
+    return;
+  }
+  
+  //FIX(adm244): don't set skip flag if entry has more than one reply
+  //TODO(adm244): get replyList length
   
   if ((conversation->topicFlags & Topic_IsVoicePlaying)
     || !(conversation->topicFlags & Topic_Patch_DialogWheelActive)) {

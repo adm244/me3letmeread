@@ -96,7 +96,11 @@ struct BioConversationEntry {
   u32 flags; // 0x2C
   u8 unk30[0x44-0x30];
   BioConversationEntryReply *replyList; // 0x44
-  u8 unk48[0x68-0x48];
+  u8 unk48[0x58-0x48];
+  i32 skippable; // 0x58
+  u32 unk5C;
+  u32 unk60;
+  u32 unk64;
 }; // 0x68
 
 struct BioConversation {
