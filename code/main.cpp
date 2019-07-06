@@ -50,9 +50,6 @@ internal bool ShouldReply(BioConversation *conversation)
 
 internal bool IsSkipped(BioConversation *conversation)
 {
-  //NOTE(adm244): there's still some sound clicking and poping
-  // is this a patch problem or game itself comes with these bugs?
-  
   //NOTE(adm244): fixes infinite-loading bug
   BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
   if (entry.flags & Entry_NonTextline) {
@@ -83,6 +80,12 @@ internal bool IsSkipped(BioConversation *conversation)
 
 internal void SkipNode(BioConversation *conversation)
 {
+  //FIX(adm244): cannot skip a topic after selecting a reply (with spacebar)
+  // for some reason it doesn't update currentReplyIndex
+  /*if ((conversation->repliesCount > 1) && (conversation->currentReplyIndex < 0)) {
+    return;
+  }*/
+  
   BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
   if (!entry.skippable && (conversation->topicFlags & Topic_IsVoicePlaying)
     && (conversation->currentReplyIndex < 0)) {

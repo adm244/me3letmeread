@@ -105,9 +105,7 @@ struct BioConversationEntry {
   BioConversationEntryReply *replyList; // 0x44
   u8 unk48[0x58-0x48];
   i32 skippable; // 0x58
-  u32 unk5C;
-  u32 unk60;
-  u32 unk64;
+  BioString unk5C;
 }; // 0x68
 assert_size(BioConversationEntry, 0x68)
 
@@ -146,7 +144,8 @@ struct BioConversation {
   i32 currentEntryIndex; // 0x8C
   u32 unk90;
   void *unk94;
-  u8 unk98[0xC0 - 0x98];
+  i32 repliesCount; // 0x98
+  u8 unk9C[0xC0 - 0x9C];
   i32 currentReplyIndex; // 0xC0
   u32 unkC4;
   u32 unkC8;
