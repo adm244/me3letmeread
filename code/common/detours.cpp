@@ -31,6 +31,52 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define DETOUR_LENGTH 5
 //#define DETOUR_TEMP_CODE_SIZE 512
 
+internal void * FindWString(void *beginAddress, void *endAddress, wchar_t *str)
+{
+  size_t stringSize = wcslen(str) * sizeof(wchar_t);
+  
+  for (char *p = (char *)beginAddress; p < endAddress; ++p) {
+    bool matched = true;
+    char *str_p = (char *)str;
+    
+    for (size_t i = 0; i < stringSize; ++i) {
+      if (str_p[i] != *(p + i)) {
+        matched = false;
+        break;
+      }
+    }
+    
+    if (matched)
+      return p;
+  }
+  
+  return 0;
+}
+
+//TODO(adm244): switch to multiple patterns search (Aho-Corasick?)
+internal u64 FindSignature(MODULEINFO *moduleInfo, char *pattern, char *mask, u64 offset)
+{
+  u64 startAddress = (u64)moduleInfo->lpBaseOfDll;
+  u64 blockSize = moduleInfo->SizeOfImage;
+  u64 patternSize = strlen(mask ? mask : pattern);
+  u64 endAddress = startAddress + blockSize - patternSize;
+
+  for (u64 i = startAddress; i < endAddress; ++i) {
+    bool matched = true;
+    for (u64 j = 0; j < patternSize; ++j) {
+      if (mask && mask[j] == '?') continue;
+      if (pattern[j] != *((char *)(i + j))) {
+        matched = false;
+        break;
+      }
+    }
+    
+    if (matched) return (i + offset);
+  }
+  
+  return 0;
+}
+
 internal bool WriteMemory(void *dest, void *buffer, int length)
 {
   DWORD oldProtection;

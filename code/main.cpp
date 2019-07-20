@@ -201,12 +201,100 @@ internal __declspec(naked) void RepliesInactive_Hook()
   }
 }
 
+/*
+  NOTE(adm244):
+    - BioConversationController::UpdateConversation()
+      - jz
+      - jnz
+    - BioConversationController::NeedToDisplayReplies()
+      - true
+      - false
+    - BioConversationController::SkipNode()
+    - Patch 0x00CBE877 to jmp (remove hiding of subtitle when VO is over)
+*/
+
+internal void * GetBioConversationControllerVTable(MODULEINFO *baseModuleInfo, void *beginAddress, void *endAddress)
+{
+  wchar_t *name = L"BioConversationController";
+  void *stringLocation = FindWString(beginAddress, endAddress, name);
+  assert(stringLocation != 0);
+  
+  char pattern[5];
+  *((u32 *)pattern) = (u32)stringLocation;
+  pattern[4] = 0;
+  
+  void *stringMOVLocation = (void *)FindSignature(baseModuleInfo, pattern, 0, -1);
+  assert(stringMOVLocation != 0);
+  assert(*((u8 *)stringMOVLocation) == 0xB9);
+  
+  void *constructor = (void *)(*((u32 *)((u8 *)stringMOVLocation - 0x16)));
+  assert(constructor != 0);
+  
+  void *constructor_inner = RIPRel32((u8 *)constructor + 0xC, 1);
+  assert(constructor_inner != 0);
+  
+  void *vtable = (void *)(*((u32 *)((u8 *)constructor_inner + 0x33)));
+  assert(vtable != 0);
+  
+  assert((u32)vtable == 0x01803F50);
+  
+  return vtable;
+}
+
+internal void * GetBioConversationManagerVTable(MODULEINFO *baseModuleInfo, void *beginAddress, void *endAddress)
+{
+  wchar_t *name = L"BioConversationManager";
+  void *stringLocation = FindWString(beginAddress, endAddress, name);
+  assert(stringLocation != 0);
+  
+  char pattern[5];
+  *((u32 *)pattern) = (u32)stringLocation;
+  pattern[4] = 0;
+  
+  void *stringMOVLocation = (void *)FindSignature(baseModuleInfo, pattern, 0, -1);
+  assert(stringMOVLocation != 0);
+  assert(*((u8 *)stringMOVLocation) == 0xB9);
+  
+  void *constructor = (void *)(*((u32 *)((u8 *)stringMOVLocation - 0x16)));
+  assert(constructor != 0);
+  
+  void *constructor_inner = RIPRel32((u8 *)constructor + 0xB, 1);
+  assert(constructor_inner != 0);
+  
+  void *vtable = (void *)(*((u32 *)((u8 *)constructor_inner + 0x34)));
+  assert(vtable != 0);
+  
+  assert((u32)vtable == 0x01804E98);
+  
+  return vtable;
+}
+
+internal void PatchExecutable()
+{
+  HANDLE processHandle = GetCurrentProcess();
+  HMODULE baseModuleHandle = GetModuleHandle(0);
+  MODULEINFO baseModuleInfo;
+  BOOL result;
+  
+  result = GetModuleInformation(processHandle, baseModuleHandle, &baseModuleInfo, sizeof(baseModuleInfo));
+  assert(result != 0);
+  
+  void *beginAddress = baseModuleInfo.lpBaseOfDll;
+  void *endAddress = (char *)beginAddress + baseModuleInfo.SizeOfImage;
+  
+  // get vtables
+  void *BioConversationManager_vtable = GetBioConversationManagerVTable(&baseModuleInfo, beginAddress, endAddress);
+  void *BioConversationController_vtable = GetBioConversationControllerVTable(&baseModuleInfo, beginAddress, endAddress);
+}
+
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
 {
   if( reason == DLL_PROCESS_ATTACH )
   {
+    PatchExecutable();
+  
     //TODO(adm244): get addresses by a signature search
-    
+    /*
     // get function pointers for BioConversation object
     void *bio_conversation_vtable = (void *)0x0117DF30;
     BioConversation_NeedToDisplayReplies = (_BioConversation_NeedToDisplayReplies)(*((u32 *)bio_conversation_vtable + 102));
@@ -251,6 +339,7 @@ internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
     void *bio_event_vo_jb_address = (void *)(0x00AA23BF);
     char *jmp8_opcode = "\xEB";
     WriteMemory(bio_event_vo_jb_address, jmp8_opcode, 1);
+    */
   }
 
   return TRUE;

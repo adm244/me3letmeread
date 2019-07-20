@@ -16,7 +16,7 @@ SET modsdir=NativeMods
 
 SET debug=/Od /Zi /nologo /DDEBUG /LDd
 SET release=/O2 /WX /nologo /LD
-SET args=/I..\%commoninclude% /Fe%projname% %files% %release% /link %libs%
+SET args=/I..\%commoninclude% /Fe%projname% %files% %debug% /link %libs%
 SET argshook=/I%commoninclude% /Fe%hookname% %fileshook% %release% /link /DEF:%deffile% %libshook%
 
 SET compiler=CL
