@@ -86,6 +86,7 @@ internal void __cdecl SkipNode(BioConversationController *conversation)
   /*if ((conversation->repliesCount > 1) && (conversation->currentReplyIndex < 0)) {
     return;
   }*/
+  
   /*
   BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
   if (!entry.skippable && (conversation->topicFlags & Topic_IsVoicePlaying)
@@ -324,6 +325,18 @@ internal void PatchNeedToDisplayReplies(BioConversationControllerVTable *vtable)
   WriteDetour(patch_inactive_ptr, &RepliesInactive_Hook, 0);
 }
 
+internal void PatchIsVOOverCheck(MODULEINFO *baseModuleInfo)
+{
+  void *patch_ptr = (void *)FindSignature(baseModuleInfo,
+    "\xF3\x0F\x5C\xC1\x0F\x2F\xD8\xF3\x0F\x11\x40\x10\x76\x1F",
+    "xxxxxxxxxxxxxx", 12);
+  
+  assert((u32)patch_ptr == 0x00CBE877);
+  
+  char *jmp8_opcode = "\xEB";
+  WriteMemory(patch_ptr, jmp8_opcode, 1);
+}
+
 internal void PatchExecutable()
 {
   HANDLE processHandle = GetCurrentProcess();
@@ -347,6 +360,9 @@ internal void PatchExecutable()
   PatchUpdateConversation(BioConversationManager_vtable);
   PatchSkipNode(BioConversationController_vtable);
   PatchNeedToDisplayReplies(BioConversationController_vtable);
+  
+  //NOTE(adm244): fixes subtitles disappearing after VO is finished
+  PatchIsVOOverCheck(&baseModuleInfo);
 }
 
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
