@@ -43,10 +43,10 @@ OTHER DEALINGS IN THE SOFTWARE.
 //internal _BioConversation_IsAmbient BioConversation_IsAmbient = 0;
 //internal _BioConversation_GetReplyText_Internal BioConversation_GetReplyText_Internal = (_BioConversation_GetReplyText_Internal)0x00B32440;
 
-/*internal bool ShouldReply(BioConversationController *conversation)
+internal bool ShouldReply(BioConversationController *conversation)
 {
   return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
-}*/
+}
 
 internal bool __cdecl IsSkipped(BioConversationController *conversation)
 {
@@ -68,12 +68,13 @@ internal bool __cdecl IsSkipped(BioConversationController *conversation)
       return true;
     }
   }
+  */
   
-  if (!BioConversationController_IsAmbient(conversation) && !ShouldReply(conversation)) {
+  if (!conversation->vtable->IsCurrentlyAmbient(conversation) && !ShouldReply(conversation)) {
     bool isSkipped = (conversation->dialogFlags & Dialog_Patch_ManualSkip);
     conversation->dialogFlags &= ~Dialog_Patch_ManualSkip;
     return isSkipped;
-  }*/
+  }
   
   return true;
 }
@@ -94,11 +95,11 @@ internal void __cdecl SkipNode(BioConversationController *conversation)
   
   //FIX(adm244): don't set skip flag if entry has more than one reply
   //TODO(adm244): get replyList length
-  
+  */
   if ((conversation->topicFlags & Topic_IsVoicePlaying)
     || !(conversation->topicFlags & Topic_Patch_DialogWheelActive)) {
     conversation->dialogFlags |= Dialog_Patch_ManualSkip;
-  }*/
+  }
 }
 
 internal void *skip_jz_dest_address = 0;

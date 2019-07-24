@@ -36,7 +36,7 @@ enum BioConversation_DialogFlags {
 };
 
 enum BioConversation_TopicFlags {
-  //Topic_IsVoicePlaying = 0x10,
+  Topic_IsVoicePlaying = 0x10,
   Topic_Patch_DialogWheelActive = 0x40000000,
 };
 
