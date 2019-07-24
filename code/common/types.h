@@ -27,6 +27,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define _TYPES_H
 
 #define internal static
+#define offsetof(s, m) ((size_t)&(((s *)0)->m))
 
 typedef char i8;
 typedef short i16;

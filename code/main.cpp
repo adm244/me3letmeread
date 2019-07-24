@@ -174,30 +174,31 @@ internal __declspec(naked) void SkipNode_Hook()
   }
 }
 
-//internal __declspec(naked) void RepliesActive_Hook()
-//{
-//  _asm {
-//    mov eax, Topic_Patch_DialogWheelActive
-//    or [esi+1A8h], eax
-//    
-//    mov eax, 1
-//    pop esi
-//    retn
-//  }
-//}
-//
-//internal __declspec(naked) void RepliesInactive_Hook()
-//{
-//  _asm {
-//    mov eax, Topic_Patch_DialogWheelActive
-//    not eax
-//    and [esi+1A8h], eax
-//    
-//    xor eax, eax
-//    pop esi
-//    retn
-//  }
-//}
+internal __declspec(naked) void RepliesActive_Hook()
+{
+  //NOTE(adm244): is there a way to shove an 'offsetof' constant into inline asm?
+  _asm {
+    mov eax, Topic_Patch_DialogWheelActive
+    or [esi+254h], eax
+    
+    mov eax, 1
+    pop esi
+    retn
+  }
+}
+
+internal __declspec(naked) void RepliesInactive_Hook()
+{
+  _asm {
+    mov eax, Topic_Patch_DialogWheelActive
+    not eax
+    and [esi+254h], eax
+    
+    xor eax, eax
+    pop esi
+    retn
+  }
+}
 
 /*
   NOTE(adm244):
@@ -310,6 +311,18 @@ internal void PatchSkipNode(BioConversationControllerVTable *vtable)
   WriteDetour(patch_ptr, &SkipNode_Hook, 0);
 }
 
+internal void PatchNeedToDisplayReplies(BioConversationControllerVTable *vtable)
+{
+  void *patch_active_ptr = (u8 *)(*vtable->NeedToDisplayReplies) + 0x4B;
+  void *patch_inactive_ptr = (u8 *)(*vtable->NeedToDisplayReplies) + 0x7B;
+  
+  assert((u32)patch_active_ptr == 0x00C480FB);
+  assert((u32)patch_inactive_ptr == 0x00C4812B);
+  
+  WriteDetour(patch_active_ptr, &RepliesActive_Hook, 2);
+  WriteDetour(patch_inactive_ptr, &RepliesInactive_Hook, 0);
+}
+
 internal void PatchExecutable()
 {
   HANDLE processHandle = GetCurrentProcess();
@@ -332,6 +345,7 @@ internal void PatchExecutable()
   
   PatchUpdateConversation(BioConversationManager_vtable);
   PatchSkipNode(BioConversationController_vtable);
+  PatchNeedToDisplayReplies(BioConversationController_vtable);
 }
 
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)

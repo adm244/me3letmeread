@@ -30,18 +30,17 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 #define assert_size(obj, size) static_assert(sizeof(obj) == size, "Size of " #obj " should be " #size)
 
-/*enum BioConversation_DialogFlags {
-  //Dialog_Skip = 0x4,
+enum BioConversation_DialogFlags {
   Dialog_Ambient = 0x80,
-  //Dialog_IsSpeaking = 0x100,
   Dialog_Patch_ManualSkip = 0x40000000,
 };
 
 enum BioConversation_TopicFlags {
-  Topic_IsVoicePlaying = 0x10,
+  //Topic_IsVoicePlaying = 0x10,
   Topic_Patch_DialogWheelActive = 0x40000000,
 };
 
+/*
 enum BioConversationEntry_Flags {
   Entry_NonTextline = 0x2,
 };*/
@@ -52,6 +51,8 @@ struct BioConversationController;
 typedef void (__stdcall *_BioConversationManager_UpdateConversation)(BioConversationManager *manager, r32 dt);
 typedef void (__stdcall *_BioConversationController_UpdateConversation)(BioConversationController *controller, r32 dt);
 typedef void (__thiscall *_BioConversationController_SkipNode)(BioConversationController *controller);
+typedef bool (__thiscall *_BioConversationController_IsCurrentlyAmbient)(BioConversationController *controller);
+typedef bool (__thiscall *_BioConversationController_NeedToDisplayReplies)(BioConversationController *controller);
 
 #pragma pack(1)
 
@@ -70,10 +71,10 @@ assert_size(BioConversationManager, 0xAC);
 struct BioConversationControllerVTable {
   u8 unk0[0x15C];
   _BioConversationController_SkipNode SkipNode; // 0x15C
-  void *IsCurrentlyAmbient; // 0x160
+  _BioConversationController_IsCurrentlyAmbient IsCurrentlyAmbient; // 0x160
   void *unk164;
   void *unk168;
-  void *NeedToDisplayReplies; // 0x16C;
+  _BioConversationController_NeedToDisplayReplies NeedToDisplayReplies; // 0x16C
   void *unk170;
   void *unk174;
   void *unk178;
@@ -83,7 +84,11 @@ assert_size(BioConversationControllerVTable, 0x180);
 
 struct BioConversationController {
   BioConversationControllerVTable *vtable; // 0x0
-  u8 unk04[0x2A8-0x4];
+  u8 unk04[0x254-0x4];
+  u32 topicFlags; // 0x254
+  u8 unk258[0x2A0-0x258];
+  u32 dialogFlags; // 0x2A0
+  u32 unkFlags; // 0x2A4
 };
 assert_size(BioConversationController, 0x2A8);
 
