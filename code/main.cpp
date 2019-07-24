@@ -48,7 +48,7 @@ OTHER DEALINGS IN THE SOFTWARE.
   return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
 }*/
 
-internal bool IsSkipped(BioConversationController *conversation)
+internal bool __cdecl IsSkipped(BioConversationController *conversation)
 {
   /*//NOTE(adm244): fixes infinite-loading bug
   BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
@@ -78,35 +78,34 @@ internal bool IsSkipped(BioConversationController *conversation)
   return true;
 }
 
-//internal void SkipNode(BioConversation *conversation)
-//{
-//  //FIX(adm244): cannot skip a topic after selecting a reply (with spacebar)
-//  // for some reason it doesn't update currentReplyIndex
-//  /*if ((conversation->repliesCount > 1) && (conversation->currentReplyIndex < 0)) {
-//    return;
-//  }*/
-//  
-//  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
-//  if (!entry.skippable && (conversation->topicFlags & Topic_IsVoicePlaying)
-//    && (conversation->currentReplyIndex < 0)) {
-//    return;
-//  }
-//  
-//  //FIX(adm244): don't set skip flag if entry has more than one reply
-//  //TODO(adm244): get replyList length
-//  
-//  if ((conversation->topicFlags & Topic_IsVoicePlaying)
-//    || !(conversation->topicFlags & Topic_Patch_DialogWheelActive)) {
-//    conversation->dialogFlags |= Dialog_Patch_ManualSkip;
-//  }
-//}
+internal void __cdecl SkipNode(BioConversationController *conversation)
+{
+  //FIX(adm244): cannot skip a topic after selecting a reply (with spacebar)
+  // for some reason it doesn't update currentReplyIndex
+  /*if ((conversation->repliesCount > 1) && (conversation->currentReplyIndex < 0)) {
+    return;
+  }*/
+  /*
+  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
+  if (!entry.skippable && (conversation->topicFlags & Topic_IsVoicePlaying)
+    && (conversation->currentReplyIndex < 0)) {
+    return;
+  }
+  
+  //FIX(adm244): don't set skip flag if entry has more than one reply
+  //TODO(adm244): get replyList length
+  
+  if ((conversation->topicFlags & Topic_IsVoicePlaying)
+    || !(conversation->topicFlags & Topic_Patch_DialogWheelActive)) {
+    conversation->dialogFlags |= Dialog_Patch_ManualSkip;
+  }*/
+}
 
 internal void *skip_jz_dest_address = 0;
 internal void *skip_jnz_dest_address = 0;
 internal void *skip_post_jnz_address = 0;
 
-//internal void *skip_node_address = 0;
-//internal void *skip_node_mov_address = 0;
+internal void *skip_node_post_address = 0;
 
 internal __declspec(naked) void IsSkipped_Hook()
 {
@@ -145,37 +144,36 @@ internal __declspec(naked) void IsSkipped_Hook()
   }
 }
 
-//internal __declspec(naked) void SkipNode_Hook()
-//{
-//  _asm {
-//    push ebx
-//    push esi
-//    push edi
-//    push ebp
-//    push esp
-//    
-//    push ecx
-//    call SkipNode
-//    pop ecx
-//    
-//    pop esp
-//    pop ebp
-//    pop edi
-//    pop esi
-//    pop ebx
-//    
-//    mov eax, [skip_node_mov_address]
-//    mov eax, [eax]
-//    push esi
-//    push edi
-//    mov edi, ecx
-//    
-//    mov edx, skip_node_address
-//    add edx, 9
-//    jmp edx
-//  }
-//}
-//
+internal __declspec(naked) void SkipNode_Hook()
+{
+  _asm {
+    push eax
+    push ebx
+    push esi
+    push edi
+    push ebp
+    push esp
+    
+    push ecx
+    call SkipNode
+    pop ecx
+    
+    pop esp
+    pop ebp
+    pop edi
+    pop esi
+    pop ebx
+    pop eax
+    
+    push ebx
+    push esi
+    push edi
+    mov edi, ecx
+    
+    jmp [skip_node_post_address]
+  }
+}
+
 //internal __declspec(naked) void RepliesActive_Hook()
 //{
 //  _asm {
@@ -300,6 +298,18 @@ internal void PatchUpdateConversation(BioConversationManagerVTable *vtable)
   WriteDetour(patch_ptr, &IsSkipped_Hook, 5);
 }
 
+internal void PatchSkipNode(BioConversationControllerVTable *vtable)
+{
+  void *patch_ptr = (u8 *)(*vtable->SkipNode) + 0x5;
+  
+  skip_node_post_address = (u8 *)patch_ptr + 0x5;
+  
+  assert((u32)patch_ptr == 0x00C44B25);
+  assert((u32)skip_node_post_address == 0x00C44B2A);
+  
+  WriteDetour(patch_ptr, &SkipNode_Hook, 0);
+}
+
 internal void PatchExecutable()
 {
   HANDLE processHandle = GetCurrentProcess();
@@ -315,12 +325,13 @@ internal void PatchExecutable()
   
   // get vtables
   BioConversationManagerVTable *BioConversationManager_vtable = (BioConversationManagerVTable *)GetBioConversationManagerVTable(&baseModuleInfo, beginAddress, endAddress);
-  void *BioConversationController_vtable = GetBioConversationControllerVTable(&baseModuleInfo, beginAddress, endAddress);
+  BioConversationControllerVTable *BioConversationController_vtable = (BioConversationControllerVTable *)GetBioConversationControllerVTable(&baseModuleInfo, beginAddress, endAddress);
   
   assert((u32)BioConversationManager_vtable == 0x01804E98);
   assert((u32)BioConversationController_vtable == 0x01803F50);
   
   PatchUpdateConversation(BioConversationManager_vtable);
+  PatchSkipNode(BioConversationController_vtable);
 }
 
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)

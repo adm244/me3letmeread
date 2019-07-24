@@ -51,6 +51,7 @@ struct BioConversationController;
 
 typedef void (__stdcall *_BioConversationManager_UpdateConversation)(BioConversationManager *manager, r32 dt);
 typedef void (__stdcall *_BioConversationController_UpdateConversation)(BioConversationController *controller, r32 dt);
+typedef void (__thiscall *_BioConversationController_SkipNode)(BioConversationController *controller);
 
 #pragma pack(1)
 
@@ -62,9 +63,29 @@ assert_size(BioConversationManagerVTable, 0x17C);
 
 struct BioConversationManager {
   BioConversationManagerVTable *vtable; // 0x0
-  u8 unk04[0x80-0x4];
+  u8 unk04[0xAC-0x4];
 };
-assert_size(BioConversationManager, 0x80);
+assert_size(BioConversationManager, 0xAC);
+
+struct BioConversationControllerVTable {
+  u8 unk0[0x15C];
+  _BioConversationController_SkipNode SkipNode; // 0x15C
+  void *IsCurrentlyAmbient; // 0x160
+  void *unk164;
+  void *unk168;
+  void *NeedToDisplayReplies; // 0x16C;
+  void *unk170;
+  void *unk174;
+  void *unk178;
+  void *unk17C;
+};
+assert_size(BioConversationControllerVTable, 0x180);
+
+struct BioConversationController {
+  BioConversationControllerVTable *vtable; // 0x0
+  u8 unk04[0x2A8-0x4];
+};
+assert_size(BioConversationController, 0x2A8);
 
 /*struct BioString {
   u16 *text; // 0x0
