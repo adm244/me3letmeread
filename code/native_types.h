@@ -28,9 +28,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _NATIVE_TYPES_H_
 #define _NATIVE_TYPES_H_
 
-#define assert_size(obj, size) static_assert(sizeof(obj) == size, "Size of " #obj " should be " #size);
+#define assert_size(obj, size) static_assert(sizeof(obj) == size, "Size of " #obj " should be " #size)
 
-enum BioConversation_DialogFlags {
+/*enum BioConversation_DialogFlags {
   //Dialog_Skip = 0x4,
   Dialog_Ambient = 0x80,
   //Dialog_IsSpeaking = 0x100,
@@ -44,16 +44,34 @@ enum BioConversation_TopicFlags {
 
 enum BioConversationEntry_Flags {
   Entry_NonTextline = 0x2,
-};
+};*/
+
+struct BioConversationManager;
+struct BioConversationController;
+
+typedef void (__stdcall *_BioConversationManager_UpdateConversation)(BioConversationManager *manager, r32 dt);
+typedef void (__stdcall *_BioConversationController_UpdateConversation)(BioConversationController *controller, r32 dt);
 
 #pragma pack(1)
 
-struct BioString {
+struct BioConversationManagerVTable {
+  u8 unk0[0x178];
+  _BioConversationManager_UpdateConversation UpdateConversation; // 0x178
+};
+assert_size(BioConversationManagerVTable, 0x17C);
+
+struct BioConversationManager {
+  BioConversationManagerVTable *vtable; // 0x0
+  u8 unk04[0x80-0x4];
+};
+assert_size(BioConversationManager, 0x80);
+
+/*struct BioString {
   u16 *text; // 0x0
   u32 length; // 0x4
   u32 capacity; //??? 0x8
 }; // 0xC
-assert_size(BioString, 0xC)
+assert_size(BioString, 0xC);
 
 struct BioConversationReply {
   u32 textRefId; // 0x0
@@ -80,7 +98,7 @@ struct BioConversationReply {
   u32 listenerIndex;
   u32 unk58;
 }; // 0x5C
-assert_size(BioConversationReply, 0x5C)
+assert_size(BioConversationReply, 0x5C);
 
 struct BioConversationEntryReply {
   u32 index; // 0x0
@@ -91,7 +109,7 @@ struct BioConversationEntryReply {
   // 0x0 - Defualt, 0x5 - Investigate
   u32 category; // 0x14
 }; // 0x18
-assert_size(BioConversationEntryReply, 0x18)
+assert_size(BioConversationEntryReply, 0x18);
 
 //NOTE(adm244): same as BioConversationReply, but with a BioString appended?
 struct BioConversationEntry {
@@ -107,34 +125,10 @@ struct BioConversationEntry {
   i32 skippable; // 0x58
   BioString unk5C;
 }; // 0x68
-assert_size(BioConversationEntry, 0x68)
+assert_size(BioConversationEntry, 0x68);
 
 struct BioConversation {
   void *vtable;
-  /*u8 unk04[0x48-0x4];
-  BioConversationEntry *entryList; // 0x48
-  u32 unk4C;
-  u32 unk50;
-  BioConversationReply *replyList; // 0x54
-  u8 unk58[0x90-0x58];
-  i32 currentEntryIndex; // 0x90
-  u32 unk94;
-  u32 unk98;
-  u32 unk9C;
-  u32 unkA0;
-  void *owner; // 0xA4
-  void *player; // 0xA8
-  void *speaker; // 0xAC
-  u32 unkB0;
-  void *listener; // 0xB4
-  u32 unkB8[3];
-  i32 currentReplyIndex; // 0xC4
-  void *kismetSequence; // 0xC8
-  u32 unkCC[2];
-  u32 topicFlags; // 0xD4
-  u32 unkD8[30];
-  u32 dialogFlags; // 0x150
-  u8 unk154[0x1FC-0x154];*/
   u8 unk04[0x48 - 0x4];
   BioConversationEntry *entryList; // 0x48
   u32 unk4C;
@@ -154,13 +148,13 @@ struct BioConversation {
   u32 topicFlags; // 0x1A8
   u8 unk1AC[0x238 - 0x1AC];
 }; // 0x238?
-assert_size(BioConversation, 0x238)
-
+assert_size(BioConversation, 0x238);
+*/
 #pragma pack(pop)
 
-typedef bool (__thiscall *_BioConversation_NeedToDisplayReplies)(BioConversation *conversation);
+/*typedef bool (__thiscall *_BioConversation_NeedToDisplayReplies)(BioConversation *conversation);
 typedef bool (__thiscall *_BioConversation_IsAmbient)(BioConversation *conversation);
 typedef BioString * (__fastcall *_BioConversation_GetReplyText_Internal)
-(int unk, int replyIndex, BioConversation *conversation, BioString *dest);
+(int unk, int replyIndex, BioConversation *conversation, BioString *dest);*/
 
 #endif

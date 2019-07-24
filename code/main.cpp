@@ -39,18 +39,18 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "detours.cpp"
 #include "native_types.h"
 
-internal _BioConversation_NeedToDisplayReplies BioConversation_NeedToDisplayReplies = 0;
-internal _BioConversation_IsAmbient BioConversation_IsAmbient = 0;
-internal _BioConversation_GetReplyText_Internal BioConversation_GetReplyText_Internal = (_BioConversation_GetReplyText_Internal)0x00B32440;
+//internal _BioConversation_NeedToDisplayReplies BioConversation_NeedToDisplayReplies = 0;
+//internal _BioConversation_IsAmbient BioConversation_IsAmbient = 0;
+//internal _BioConversation_GetReplyText_Internal BioConversation_GetReplyText_Internal = (_BioConversation_GetReplyText_Internal)0x00B32440;
 
-internal bool ShouldReply(BioConversation *conversation)
+/*internal bool ShouldReply(BioConversationController *conversation)
 {
   return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
-}
+}*/
 
-internal bool IsSkipped(BioConversation *conversation)
+internal bool IsSkipped(BioConversationController *conversation)
 {
-  //NOTE(adm244): fixes infinite-loading bug
+  /*//NOTE(adm244): fixes infinite-loading bug
   BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
   if (entry.flags & Entry_NonTextline) {
     return true;
@@ -61,7 +61,7 @@ internal bool IsSkipped(BioConversation *conversation)
     BioConversationEntryReply entryReply = entry.replyList[conversation->currentReplyIndex];
   
     BioString replyText = {0};
-    BioConversation_GetReplyText_Internal(1, entryReply.index, conversation, &replyText);
+    BioConversationController_GetReplyText_Internal(1, entryReply.index, conversation, &replyText);
     
     //NOTE(adm244): probably should check if string contains only whitespaces or empty
     if (replyText.length < 3) {
@@ -69,44 +69,44 @@ internal bool IsSkipped(BioConversation *conversation)
     }
   }
   
-  if (!BioConversation_IsAmbient(conversation) && !ShouldReply(conversation)) {
+  if (!BioConversationController_IsAmbient(conversation) && !ShouldReply(conversation)) {
     bool isSkipped = (conversation->dialogFlags & Dialog_Patch_ManualSkip);
     conversation->dialogFlags &= ~Dialog_Patch_ManualSkip;
     return isSkipped;
-  }
+  }*/
   
   return true;
 }
 
-internal void SkipNode(BioConversation *conversation)
-{
-  //FIX(adm244): cannot skip a topic after selecting a reply (with spacebar)
-  // for some reason it doesn't update currentReplyIndex
-  /*if ((conversation->repliesCount > 1) && (conversation->currentReplyIndex < 0)) {
-    return;
-  }*/
-  
-  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
-  if (!entry.skippable && (conversation->topicFlags & Topic_IsVoicePlaying)
-    && (conversation->currentReplyIndex < 0)) {
-    return;
-  }
-  
-  //FIX(adm244): don't set skip flag if entry has more than one reply
-  //TODO(adm244): get replyList length
-  
-  if ((conversation->topicFlags & Topic_IsVoicePlaying)
-    || !(conversation->topicFlags & Topic_Patch_DialogWheelActive)) {
-    conversation->dialogFlags |= Dialog_Patch_ManualSkip;
-  }
-}
+//internal void SkipNode(BioConversation *conversation)
+//{
+//  //FIX(adm244): cannot skip a topic after selecting a reply (with spacebar)
+//  // for some reason it doesn't update currentReplyIndex
+//  /*if ((conversation->repliesCount > 1) && (conversation->currentReplyIndex < 0)) {
+//    return;
+//  }*/
+//  
+//  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
+//  if (!entry.skippable && (conversation->topicFlags & Topic_IsVoicePlaying)
+//    && (conversation->currentReplyIndex < 0)) {
+//    return;
+//  }
+//  
+//  //FIX(adm244): don't set skip flag if entry has more than one reply
+//  //TODO(adm244): get replyList length
+//  
+//  if ((conversation->topicFlags & Topic_IsVoicePlaying)
+//    || !(conversation->topicFlags & Topic_Patch_DialogWheelActive)) {
+//    conversation->dialogFlags |= Dialog_Patch_ManualSkip;
+//  }
+//}
 
 internal void *skip_jz_dest_address = 0;
 internal void *skip_jnz_dest_address = 0;
 internal void *skip_post_jnz_address = 0;
 
-internal void *skip_node_address = 0;
-internal void *skip_node_mov_address = 0;
+//internal void *skip_node_address = 0;
+//internal void *skip_node_mov_address = 0;
 
 internal __declspec(naked) void IsSkipped_Hook()
 {
@@ -135,9 +135,9 @@ internal __declspec(naked) void IsSkipped_Hook()
     jmp [skip_jz_dest_address]
     
   skip_dialog:
-    test esi, esi
+    cmp esi, edi
     jnz jnz_jump
-    mov eax, [esp + 20h]
+    mov ecx, [ebx + 218h]
     jmp [skip_post_jnz_address]
     
   jnz_jump:
@@ -145,61 +145,61 @@ internal __declspec(naked) void IsSkipped_Hook()
   }
 }
 
-internal __declspec(naked) void SkipNode_Hook()
-{
-  _asm {
-    push ebx
-    push esi
-    push edi
-    push ebp
-    push esp
-    
-    push ecx
-    call SkipNode
-    pop ecx
-    
-    pop esp
-    pop ebp
-    pop edi
-    pop esi
-    pop ebx
-    
-    mov eax, [skip_node_mov_address]
-    mov eax, [eax]
-    push esi
-    push edi
-    mov edi, ecx
-    
-    mov edx, skip_node_address
-    add edx, 9
-    jmp edx
-  }
-}
-
-internal __declspec(naked) void RepliesActive_Hook()
-{
-  _asm {
-    mov eax, Topic_Patch_DialogWheelActive
-    or [esi+1A8h], eax
-    
-    mov eax, 1
-    pop esi
-    retn
-  }
-}
-
-internal __declspec(naked) void RepliesInactive_Hook()
-{
-  _asm {
-    mov eax, Topic_Patch_DialogWheelActive
-    not eax
-    and [esi+1A8h], eax
-    
-    xor eax, eax
-    pop esi
-    retn
-  }
-}
+//internal __declspec(naked) void SkipNode_Hook()
+//{
+//  _asm {
+//    push ebx
+//    push esi
+//    push edi
+//    push ebp
+//    push esp
+//    
+//    push ecx
+//    call SkipNode
+//    pop ecx
+//    
+//    pop esp
+//    pop ebp
+//    pop edi
+//    pop esi
+//    pop ebx
+//    
+//    mov eax, [skip_node_mov_address]
+//    mov eax, [eax]
+//    push esi
+//    push edi
+//    mov edi, ecx
+//    
+//    mov edx, skip_node_address
+//    add edx, 9
+//    jmp edx
+//  }
+//}
+//
+//internal __declspec(naked) void RepliesActive_Hook()
+//{
+//  _asm {
+//    mov eax, Topic_Patch_DialogWheelActive
+//    or [esi+1A8h], eax
+//    
+//    mov eax, 1
+//    pop esi
+//    retn
+//  }
+//}
+//
+//internal __declspec(naked) void RepliesInactive_Hook()
+//{
+//  _asm {
+//    mov eax, Topic_Patch_DialogWheelActive
+//    not eax
+//    and [esi+1A8h], eax
+//    
+//    xor eax, eax
+//    pop esi
+//    retn
+//  }
+//}
 
 /*
   NOTE(adm244):
@@ -269,6 +269,37 @@ internal void * GetBioConversationManagerVTable(MODULEINFO *baseModuleInfo, void
   return vtable;
 }
 
+internal void PatchUpdateConversation(BioConversationManagerVTable *vtable)
+{
+  void *BioConversationController_UpdateConversation = RIPRel32((u8 *)(*vtable->UpdateConversation) + 0x33C, 1);
+  
+  assert((u32)BioConversationController_UpdateConversation == 0x00C43E40);
+  
+  void *jz_ptr = (u8 *)BioConversationController_UpdateConversation + 0x4CC;
+  void *jz_dest_ptr = RIPRel32(jz_ptr, 2);
+  
+  assert((u32)jz_ptr == 0x00C4430C);
+  assert((u32)jz_dest_ptr == 0x00C44397);
+  
+  void *patch_ptr = (u8 *)jz_ptr + 0x6;
+  
+  assert((u32)patch_ptr == 0x00C44312);
+  
+  void *jnz_ptr = (u8 *)patch_ptr + 0x2;
+  void *jnz_dest_ptr = RIPRel8(jnz_ptr, 1);
+  void *jnz_post_ptr = (u8 *)jnz_ptr + 0x2;
+  
+  assert((u32)jnz_ptr == 0x00C44314);
+  assert((u32)jnz_dest_ptr == 0x00C44356);
+  assert((u32)jnz_post_ptr == 0x00C44316);
+  
+  skip_jz_dest_address = jz_dest_ptr;
+  skip_jnz_dest_address = jnz_dest_ptr;
+  skip_post_jnz_address = (u8 *)jnz_post_ptr + 5;
+  
+  WriteDetour(patch_ptr, &IsSkipped_Hook, 5);
+}
+
 internal void PatchExecutable()
 {
   HANDLE processHandle = GetCurrentProcess();
@@ -283,8 +314,13 @@ internal void PatchExecutable()
   void *endAddress = (char *)beginAddress + baseModuleInfo.SizeOfImage;
   
   // get vtables
-  void *BioConversationManager_vtable = GetBioConversationManagerVTable(&baseModuleInfo, beginAddress, endAddress);
+  BioConversationManagerVTable *BioConversationManager_vtable = (BioConversationManagerVTable *)GetBioConversationManagerVTable(&baseModuleInfo, beginAddress, endAddress);
   void *BioConversationController_vtable = GetBioConversationControllerVTable(&baseModuleInfo, beginAddress, endAddress);
+  
+  assert((u32)BioConversationManager_vtable == 0x01804E98);
+  assert((u32)BioConversationController_vtable == 0x01803F50);
+  
+  PatchUpdateConversation(BioConversationManager_vtable);
 }
 
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)

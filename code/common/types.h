@@ -40,4 +40,7 @@ typedef unsigned long long u64;
 
 typedef unsigned int uint;
 
+typedef float r32;
+typedef double r64;
+
 #endif
