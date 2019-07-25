@@ -48,6 +48,17 @@ internal bool ShouldReply(BioConversationController *conversation)
   return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
 }
 
+/*TODO(adm244):
+    - BioConversation*
+      - currentEntryIndex
+      - currentReplyIndex
+    - BioConversationEntry
+      - flags
+      - skippable
+    - BioConversationEntryReply
+      - index
+*/
+
 internal bool __cdecl IsSkipped(BioConversationController *conversation)
 {
   /*//NOTE(adm244): fixes infinite-loading bug
@@ -201,18 +212,6 @@ internal __declspec(naked) void RepliesInactive_Hook()
     retn
   }
 }
-
-/*
-  NOTE(adm244):
-    - BioConversationController::UpdateConversation()
-      - jz
-      - jnz
-    - BioConversationController::NeedToDisplayReplies()
-      - true
-      - false
-    - BioConversationController::SkipNode()
-    - Patch 0x00CBE877 to jmp (remove hiding of subtitle when VO is over)
-*/
 
 internal void * GetBioConversationControllerVTable(MODULEINFO *baseModuleInfo, void *beginAddress, void *endAddress)
 {

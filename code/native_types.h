@@ -72,7 +72,7 @@ struct BioConversationControllerVTable {
   u8 unk0[0x15C];
   _BioConversationController_SkipNode SkipNode; // 0x15C
   _BioConversationController_IsCurrentlyAmbient IsCurrentlyAmbient; // 0x160
-  void *unk164;
+  void *GetReplyParaphraseText;
   void *unk168;
   _BioConversationController_NeedToDisplayReplies NeedToDisplayReplies; // 0x16C
   void *unk170;
@@ -98,34 +98,36 @@ assert_size(BioConversationController, 0x2A8);
   u32 capacity; //??? 0x8
 }; // 0xC
 assert_size(BioString, 0xC);
+*/
 
-struct BioConversationReply {
-  u32 textRefId; // 0x0
-  u16 *text; // 0x4
-  u32 unk8;
-  u32 unkC;
-  u32 unk10;
-  i32 conditionalFunc; // 0x14
+struct BioConversationEntry {
+  u32 unk00;
+  u32 unk04;
+  u32 unk08;
+  u32 textRefId; // 0x0C
+  u32 conditionalFunc; // 0x10
+  u32 unk14;
   u32 unk18;
-  i32 stateTransition; // 0x1C
-  u32 unk20;
-  u32 exportId; // 0x24
+  u32 unk1C;
+  u32 exportId; // 0x20
+  u32 unk24;
   u32 unk28;
-  u32 unk2C; // flags?
+  u32 cameraIntimacy; // 0x2C
   u32 unk30;
   u32 unk34;
-  u32 unk38;
-  u32 cameraIntimacy; // 0x3C
-  u32 ignoreBodyGestures; // 0x40
-  u32 *entryIndexList; // 0x44
+  void *replyList; // 0x38
+  u32 unk3C;
+  u32 unk40;
+  u32 unk44;
   u32 unk48;
   u32 unk4C;
-  u32 unk50;
-  u32 listenerIndex;
+  u32 speakerIndex; // 0x50
+  u32 listenerIndex; // 0x54
   u32 unk58;
 }; // 0x5C
-assert_size(BioConversationReply, 0x5C);
+assert_size(BioConversationEntry, 0x5C);
 
+/*
 struct BioConversationEntryReply {
   u32 index; // 0x0
   u32 textRefId; // 0x4
