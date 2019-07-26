@@ -48,25 +48,16 @@ internal bool ShouldReply(BioConversationController *conversation)
   return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
 }
 
-/*TODO(adm244):
-    - BioConversation*
-      - currentEntryIndex
-      - currentReplyIndex
-    - BioConversationEntry
-      - flags
-      - skippable
-    - BioConversationEntryReply
-      - index
-*/
-
-internal bool __cdecl IsSkipped(BioConversationController *conversation)
+internal bool __cdecl IsSkipped(BioConversationController *controller)
 {
   /*//NOTE(adm244): fixes infinite-loading bug
   BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
   if (entry.flags & Entry_NonTextline) {
     return true;
   }
+  */
   
+  /*
   //NOTE(adm244): skipes "empty" replies
   if (conversation->currentReplyIndex >= 0) {
     BioConversationEntryReply entryReply = entry.replyList[conversation->currentReplyIndex];
@@ -81,16 +72,16 @@ internal bool __cdecl IsSkipped(BioConversationController *conversation)
   }
   */
   
-  if (!conversation->vtable->IsCurrentlyAmbient(conversation) && !ShouldReply(conversation)) {
-    bool isSkipped = (conversation->dialogFlags & Dialog_Patch_ManualSkip);
-    conversation->dialogFlags &= ~Dialog_Patch_ManualSkip;
+  if (!controller->vtable->IsCurrentlyAmbient(controller) && !ShouldReply(controller)) {
+    bool isSkipped = (controller->topicFlags & Topic_Patch_ManualSkip);
+    controller->topicFlags &= ~Topic_Patch_ManualSkip;
     return isSkipped;
   }
   
   return true;
 }
 
-internal void __cdecl SkipNode(BioConversationController *conversation)
+internal void __cdecl SkipNode(BioConversationController *controller)
 {
   //FIX(adm244): cannot skip a topic after selecting a reply (with spacebar)
   // for some reason it doesn't update currentReplyIndex
@@ -98,19 +89,18 @@ internal void __cdecl SkipNode(BioConversationController *conversation)
     return;
   }*/
   
-  /*
-  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
-  if (!entry.skippable && (conversation->topicFlags & Topic_IsVoicePlaying)
-    && (conversation->currentReplyIndex < 0)) {
+  BioConversationEntry entry = controller->conversation->entriesList[controller->currentEntryIndex];
+  if (!entry.skippable && (controller->topicFlags & Topic_IsVoicePlaying)
+    && (controller->currentReplyIndex < 0)) {
     return;
   }
   
   //FIX(adm244): don't set skip flag if entry has more than one reply
   //TODO(adm244): get replyList length
-  */
-  if ((conversation->topicFlags & Topic_IsVoicePlaying)
-    || !(conversation->topicFlags & Topic_Patch_DialogWheelActive)) {
-    conversation->dialogFlags |= Dialog_Patch_ManualSkip;
+  
+  if ((controller->topicFlags & Topic_IsVoicePlaying)
+    || !(controller->topicFlags & Topic_Patch_DialogWheelActive)) {
+    controller->topicFlags |= Topic_Patch_ManualSkip;
   }
 }
 

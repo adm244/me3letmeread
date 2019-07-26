@@ -32,12 +32,12 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 enum BioConversation_DialogFlags {
   Dialog_Ambient = 0x80,
-  Dialog_Patch_ManualSkip = 0x40000000,
 };
 
 enum BioConversation_TopicFlags {
   Topic_IsVoicePlaying = 0x10,
-  Topic_Patch_DialogWheelActive = 0x40000000,
+  Topic_Patch_ManualSkip = 0x40000000,
+  Topic_Patch_DialogWheelActive = 0x80000000,
 };
 
 /*
@@ -55,6 +55,59 @@ typedef bool (__thiscall *_BioConversationController_IsCurrentlyAmbient)(BioConv
 typedef bool (__thiscall *_BioConversationController_NeedToDisplayReplies)(BioConversationController *controller);
 
 #pragma pack(1)
+
+struct BioConversationEntry {
+  u32 unk00;
+  u32 unk04;
+  u32 unk08;
+  u32 textRefId; // 0x0C
+  u32 conditionalFunc; // 0x10
+  u32 unk14;
+  u32 unk18;
+  u32 unk1C;
+  u32 exportId; // 0x20
+  u32 unk24;
+  u32 unk28;
+  u32 cameraIntimacy; // 0x2C
+  u32 unk30;
+  u32 unk34;
+  void *replyList; // 0x38
+  u32 unk3C;
+  u32 unk40;
+  void *speakerList; // 0x44
+  u32 unk48;
+  u32 unk4C;
+  u32 speakerIndex; // 0x50
+  u32 listenerIndex; // 0x54
+  u32 skippable; // 0x58
+}; // 0x5C
+assert_size(BioConversationEntry, 0x5C);
+
+struct BioConversationReply {
+  u32 unk00;
+  u32 unk04;
+  u32 unk08;
+  u32 textRefId; // 0x0C
+  u8 unk10[0x50-0x10];
+};
+assert_size(BioConversationReply, 0x50);
+
+struct BioConversationVTable {
+  u8 unk00[0x158];
+};
+assert_size(BioConversationVTable, 0x158);
+
+struct BioConversation {
+  BioConversationVTable *vtable; // 0x0
+  u8 unk04[0x84-0x4];
+  BioConversationEntry *entriesList; // 0x84
+  u32 entriesCount; // 0x88
+  u32 unk8C;
+  BioConversationReply *repliesList; // 0x90
+  u32 repliesCount; // 0x94
+  u8 unk98[0x108-0x98];
+};
+assert_size(BioConversation, 0x108);
 
 struct BioConversationManagerVTable {
   u8 unk0[0x178];
@@ -84,7 +137,13 @@ assert_size(BioConversationControllerVTable, 0x180);
 
 struct BioConversationController {
   BioConversationControllerVTable *vtable; // 0x0
-  u8 unk04[0x254-0x4];
+  u8 unk04[0x200-0x4];
+  BioConversation *conversation; // 0x200
+  void *unk204;
+  u32 currentEntryIndex; // 0x208
+  u8 unk20C[0x224-0x20C];
+  u32 currentReplyIndex; // 0x224
+  u8 unk228[0x254-0x228];
   u32 topicFlags; // 0x254
   u8 unk258[0x2A0-0x258];
   u32 dialogFlags; // 0x2A0
@@ -99,33 +158,6 @@ assert_size(BioConversationController, 0x2A8);
 }; // 0xC
 assert_size(BioString, 0xC);
 */
-
-struct BioConversationEntry {
-  u32 unk00;
-  u32 unk04;
-  u32 unk08;
-  u32 textRefId; // 0x0C
-  u32 conditionalFunc; // 0x10
-  u32 unk14;
-  u32 unk18;
-  u32 unk1C;
-  u32 exportId; // 0x20
-  u32 unk24;
-  u32 unk28;
-  u32 cameraIntimacy; // 0x2C
-  u32 unk30;
-  u32 unk34;
-  void *replyList; // 0x38
-  u32 unk3C;
-  u32 unk40;
-  u32 unk44;
-  u32 unk48;
-  u32 unk4C;
-  u32 speakerIndex; // 0x50
-  u32 listenerIndex; // 0x54
-  u32 unk58;
-}; // 0x5C
-assert_size(BioConversationEntry, 0x5C);
 
 /*
 struct BioConversationEntryReply {
