@@ -43,6 +43,8 @@ OTHER DEALINGS IN THE SOFTWARE.
 //internal _BioConversation_IsAmbient BioConversation_IsAmbient = 0;
 //internal _BioConversation_GetReplyText_Internal BioConversation_GetReplyText_Internal = (_BioConversation_GetReplyText_Internal)0x00B32440;
 
+internal bool PauseWorld = false;
+
 internal bool ShouldReply(BioConversationController *conversation)
 {
   return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
@@ -75,6 +77,11 @@ internal bool __cdecl IsSkipped(BioConversationController *controller)
   if (!controller->vtable->IsCurrentlyAmbient(controller) && !ShouldReply(controller)) {
     bool isSkipped = (controller->topicFlags & Topic_Patch_ManualSkip);
     controller->topicFlags &= ~Topic_Patch_ManualSkip;
+    
+    if (!isSkipped && !(controller->topicFlags & Topic_IsVoicePlaying)) {
+      PauseWorld = true;
+    }
+    
     return isSkipped;
   }
   
@@ -102,6 +109,23 @@ internal void __cdecl SkipNode(BioConversationController *controller)
     || !(controller->topicFlags & Topic_Patch_DialogWheelActive)) {
     controller->topicFlags |= Topic_Patch_ManualSkip;
   }
+  
+  if (PauseWorld) {
+    PauseWorld = false;
+  }
+}
+
+internal void __cdecl WorldTick(BioWorldInfo *world)
+{
+  if (PauseWorld) {
+    if(!(world->flags & WorldInfo_IsPaused)) {
+      world->flags |= WorldInfo_IsPaused;
+    }
+  } else {
+    if(world->flags & WorldInfo_IsPaused) {
+      world->flags &= ~WorldInfo_IsPaused;
+    }
+  }
 }
 
 internal void *skip_jz_dest_address = 0;
@@ -110,9 +134,11 @@ internal void *skip_post_jnz_address = 0;
 
 internal void *skip_node_post_address = 0;
 
+internal void *world_tick_post_address = 0;
+
 internal __declspec(naked) void IsSkipped_Hook()
 {
-  _asm {
+  __asm {
     push ebx
     push esi
     push edi
@@ -149,7 +175,7 @@ internal __declspec(naked) void IsSkipped_Hook()
 
 internal __declspec(naked) void SkipNode_Hook()
 {
-  _asm {
+  __asm {
     push eax
     push ebx
     push esi
@@ -180,7 +206,7 @@ internal __declspec(naked) void SkipNode_Hook()
 internal __declspec(naked) void RepliesActive_Hook()
 {
   //NOTE(adm244): is there a way to shove an 'offsetof' constant into inline asm?
-  _asm {
+  __asm {
     mov eax, Topic_Patch_DialogWheelActive
     or [esi+254h], eax
     
@@ -192,7 +218,7 @@ internal __declspec(naked) void RepliesActive_Hook()
 
 internal __declspec(naked) void RepliesInactive_Hook()
 {
-  _asm {
+  __asm {
     mov eax, Topic_Patch_DialogWheelActive
     not eax
     and [esi+254h], eax
@@ -200,6 +226,34 @@ internal __declspec(naked) void RepliesInactive_Hook()
     xor eax, eax
     pop esi
     retn
+  }
+}
+
+internal __declspec(naked) void WorldTick_Hook()
+{
+  __asm {
+    push ebx
+    push esi
+    push edi
+    push ebp
+    push esp
+    
+    push esi
+    call WorldTick
+    pop esi
+    
+    pop esp
+    pop ebp
+    pop edi
+    pop esi
+    pop ebx
+    
+    push ebp
+    mov ebp, esp
+    push ecx
+    mov eax, [esi]
+    
+    jmp [world_tick_post_address]
   }
 }
 
@@ -314,6 +368,19 @@ internal void PatchNeedToDisplayReplies(BioConversationControllerVTable *vtable)
   WriteDetour(patch_inactive_ptr, &RepliesInactive_Hook, 0);
 }
 
+internal void PatchBioWorldInfoTickLocal(MODULEINFO *baseModuleInfo)
+{
+  void *patch_ptr = (void *)FindSignature(baseModuleInfo,
+    "\x8B\x8E\xA8\x07\x00\x00\xD9\x45\x08\x8B\x01\x8B\x90\x78\x01\x00\x00",
+    "xxxxxxxxxxxxxxxxx", -0x28);
+  
+  assert((u32)patch_ptr == 0x00CC97E0);
+  
+  world_tick_post_address = (u8 *)patch_ptr + 0x6;
+  
+  WriteDetour(patch_ptr, &WorldTick_Hook, 1);
+}
+
 internal void PatchIsVOOverCheck(MODULEINFO *baseModuleInfo)
 {
   void *patch_ptr = (void *)FindSignature(baseModuleInfo,
@@ -349,6 +416,9 @@ internal void PatchExecutable()
   PatchUpdateConversation(BioConversationManager_vtable);
   PatchSkipNode(BioConversationController_vtable);
   PatchNeedToDisplayReplies(BioConversationController_vtable);
+  
+  //NOTE(adm244): allows us to pause world updates
+  PatchBioWorldInfoTickLocal(&baseModuleInfo);
   
   //NOTE(adm244): fixes subtitles disappearing after VO is finished
   PatchIsVOOverCheck(&baseModuleInfo);

@@ -45,6 +45,10 @@ enum BioConversationEntry_Flags {
   Entry_NonTextline = 0x2,
 };*/
 
+enum BioWorldInfo_Flags {
+  WorldInfo_IsPaused = 0x400,
+};
+
 struct BioConversationManager;
 struct BioConversationController;
 
@@ -54,7 +58,20 @@ typedef void (__thiscall *_BioConversationController_SkipNode)(BioConversationCo
 typedef bool (__thiscall *_BioConversationController_IsCurrentlyAmbient)(BioConversationController *controller);
 typedef bool (__thiscall *_BioConversationController_NeedToDisplayReplies)(BioConversationController *controller);
 
+/*
+  Text is in UTF-16 encoding
+  BioSubtitles::AddSubtitle(BioSubtitles *ptr, BioString *text, BioConversationController *controller, BioPawn *actor, u32 unk04, u32 unk05, u32 unk06, u32 unk07, float unk08, float unk09);
+*/
+
 #pragma pack(1)
+
+struct BioString {
+  //NOTE(adm244): text is in UTF-16 encoding
+  u16 *text; // 0x0
+  u32 length; // 0x4
+  u32 capacity; //??? 0x8
+}; // 0xC
+assert_size(BioString, 0xC);
 
 struct BioConversationEntry {
   u32 unk00;
@@ -151,13 +168,13 @@ struct BioConversationController {
 };
 assert_size(BioConversationController, 0x2A8);
 
-/*struct BioString {
-  u16 *text; // 0x0
-  u32 length; // 0x4
-  u32 capacity; //??? 0x8
-}; // 0xC
-assert_size(BioString, 0xC);
-*/
+struct BioWorldInfo {
+  void *vtable; // 0x0
+  u8 unk04[0x648-0x04];
+  u32 flags; // 0x648
+  u8 unk64C[0x7D4-0x64C];
+};
+assert_size(BioWorldInfo, 0x7D4);
 
 /*
 struct BioConversationEntryReply {
