@@ -45,6 +45,13 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 internal bool PauseWorld = false;
 
+internal BioWorldInfo * GetBioWorldInfo()
+{
+  World *world = *(World **)0x1AA0D20;
+  Level *level = world->level;
+  return level->unk->worldInfo;
+}
+
 internal bool ShouldReply(BioConversationController *conversation)
 {
   return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
@@ -78,8 +85,11 @@ internal bool __cdecl IsSkipped(BioConversationController *controller)
     bool isSkipped = (controller->topicFlags & Topic_Patch_ManualSkip);
     controller->topicFlags &= ~Topic_Patch_ManualSkip;
     
-    if (!isSkipped && !(controller->topicFlags & Topic_IsVoicePlaying)) {
+    if (!isSkipped && !PauseWorld && !(controller->topicFlags & Topic_IsVoicePlaying)) {
       PauseWorld = true;
+      
+      BioWorldInfo *worldInfo = GetBioWorldInfo();
+      worldInfo->flags |= WorldInfo_IsPaused;
     }
     
     return isSkipped;
@@ -112,12 +122,17 @@ internal void __cdecl SkipNode(BioConversationController *controller)
   
   if (PauseWorld) {
     PauseWorld = false;
+    
+    //FIX(adm244): animations seems to get reset on resume (just set\clear some flag?)
+    
+    BioWorldInfo *worldInfo = GetBioWorldInfo();
+    worldInfo->flags &= ~WorldInfo_IsPaused;
   }
 }
 
 internal void __cdecl WorldTick(BioWorldInfo *world)
 {
-  if (PauseWorld) {
+  /*if (PauseWorld) {
     if(!(world->flags & WorldInfo_IsPaused)) {
       world->flags |= WorldInfo_IsPaused;
     }
@@ -125,11 +140,11 @@ internal void __cdecl WorldTick(BioWorldInfo *world)
     if(world->flags & WorldInfo_IsPaused) {
       world->flags &= ~WorldInfo_IsPaused;
     }
-  }
+  }*/
 }
 
 internal void *skip_jz_dest_address = 0;
-internal void *skip_jnz_dest_address = 0;
+//internal void *skip_jnz_dest_address = 0;
 internal void *skip_post_jnz_address = 0;
 
 internal void *skip_node_post_address = 0;
@@ -163,13 +178,12 @@ internal __declspec(naked) void IsSkipped_Hook()
     jmp [skip_jz_dest_address]
     
   skip_dialog:
-    cmp esi, edi
-    jnz jnz_jump
-    mov ecx, [ebx + 218h]
+    cmp [ebp-10], edi
+    je jz_jump
     jmp [skip_post_jnz_address]
-    
-  jnz_jump:
-    jmp [skip_jnz_dest_address]
+  
+  jz_jump:
+    jmp [skip_jz_dest_address]
   }
 }
 
@@ -321,27 +335,20 @@ internal void PatchUpdateConversation(BioConversationManagerVTable *vtable)
   
   void *jz_ptr = (u8 *)BioConversationController_UpdateConversation + 0x4CC;
   void *jz_dest_ptr = RIPRel32(jz_ptr, 2);
+  void *jz_post_ptr = (u8 *)jz_ptr + 0x6;
   
   assert((u32)jz_ptr == 0x00C4430C);
   assert((u32)jz_dest_ptr == 0x00C44397);
+  assert((u32)jz_post_ptr == 0x00C44312);
   
-  void *patch_ptr = (u8 *)jz_ptr + 0x6;
+  void *patch_ptr = (u8 *)jz_ptr - 0x3;
   
-  assert((u32)patch_ptr == 0x00C44312);
-  
-  void *jnz_ptr = (u8 *)patch_ptr + 0x2;
-  void *jnz_dest_ptr = RIPRel8(jnz_ptr, 1);
-  void *jnz_post_ptr = (u8 *)jnz_ptr + 0x2;
-  
-  assert((u32)jnz_ptr == 0x00C44314);
-  assert((u32)jnz_dest_ptr == 0x00C44356);
-  assert((u32)jnz_post_ptr == 0x00C44316);
+  assert((u32)patch_ptr == 0x00C44309);
   
   skip_jz_dest_address = jz_dest_ptr;
-  skip_jnz_dest_address = jnz_dest_ptr;
-  skip_post_jnz_address = (u8 *)jnz_post_ptr + 5;
+  skip_post_jnz_address = jz_post_ptr;
   
-  WriteDetour(patch_ptr, &IsSkipped_Hook, 5);
+  WriteDetour(patch_ptr, &IsSkipped_Hook, 4);
 }
 
 internal void PatchSkipNode(BioConversationControllerVTable *vtable)

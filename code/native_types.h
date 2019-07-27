@@ -176,6 +176,22 @@ struct BioWorldInfo {
 };
 assert_size(BioWorldInfo, 0x7D4);
 
+struct LevelUnk {
+  BioWorldInfo *worldInfo; // 0x0
+};
+
+struct Level {
+  void *vtable; // 0x0
+  u8 unk04[0x3C-0x04];
+  LevelUnk *unk;
+};
+
+struct World {
+  void *vtable; // 0x0
+  u8 unk04[0x54-0x04];
+  Level *level;
+};
+
 /*
 struct BioConversationEntryReply {
   u32 index; // 0x0
