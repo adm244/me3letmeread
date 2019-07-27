@@ -49,14 +49,22 @@ enum BioWorldInfo_Flags {
   WorldInfo_IsPaused = 0x400,
 };
 
+enum BioSeqAct_FaceOnlyVO_Flags {
+  //FOVO_Ambient = 0x8000,
+  FOVO_SubConversation = 0x800,
+};
+
 struct BioConversationManager;
 struct BioConversationController;
+struct BioWorldInfo;
+struct BioSeqAct_FaceOnlyVO;
 
 typedef void (__stdcall *_BioConversationManager_UpdateConversation)(BioConversationManager *manager, r32 dt);
 typedef void (__stdcall *_BioConversationController_UpdateConversation)(BioConversationController *controller, r32 dt);
 typedef void (__thiscall *_BioConversationController_SkipNode)(BioConversationController *controller);
 typedef bool (__thiscall *_BioConversationController_IsCurrentlyAmbient)(BioConversationController *controller);
 typedef bool (__thiscall *_BioConversationController_NeedToDisplayReplies)(BioConversationController *controller);
+typedef void (__thiscall *_BioWorldInfo_SetFOVOAsPlaying)(BioWorldInfo *worldInfo, BioSeqAct_FaceOnlyVO *fovo);
 
 /*
   Text is in UTF-16 encoding
@@ -168,8 +176,13 @@ struct BioConversationController {
 };
 assert_size(BioConversationController, 0x2A8);
 
+struct BioWorldInfoVTable {
+  u8 unk00[0x458];
+  _BioWorldInfo_SetFOVOAsPlaying SetFOVOAsPlaying;
+};
+
 struct BioWorldInfo {
-  void *vtable; // 0x0
+  BioWorldInfoVTable *vtable; // 0x0
   u8 unk04[0x648-0x04];
   u32 flags; // 0x648
   u8 unk64C[0x7D4-0x64C];
@@ -191,6 +204,16 @@ struct World {
   u8 unk04[0x54-0x04];
   Level *level;
 };
+
+struct BioSeqAct_FaceOnlyVO {
+  void *vtable; // 0x0
+  u8 unk04[0x10C-0x04];
+  BioString text; // 0x10C
+  u8 unk118[0x150-0x118];
+  u32 flags; // 0x150
+  u32 unk154;
+};
+assert_size(BioSeqAct_FaceOnlyVO, 0x158);
 
 /*
 struct BioConversationEntryReply {

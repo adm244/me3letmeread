@@ -98,7 +98,27 @@ internal bool __cdecl IsSkipped(BioConversationController *controller)
   return true;
 }
 
-internal void __cdecl SkipNode(BioConversationController *controller)
+internal bool FOVOPlaying = false;
+
+internal bool __cdecl IsSkippedPreFOVO(BioSeqAct_FaceOnlyVO *fovo, BioWorldInfo *worldInfo)
+{
+  if (!PauseWorld && !FOVOPlaying && (fovo->flags & FOVO_SubConversation)) {
+    PauseWorld = true;
+  
+    //BioWorldInfo *worldInfo = GetBioWorldInfo();
+    worldInfo->flags |= WorldInfo_IsPaused;
+    
+    FOVOPlaying = true;
+    
+    worldInfo->vtable->SetFOVOAsPlaying(worldInfo, fovo);
+  
+    return false;
+  }
+  
+  return true;
+}
+
+internal bool __cdecl SkipNode(BioConversationController *controller)
 {
   //FIX(adm244): cannot skip a topic after selecting a reply (with spacebar)
   // for some reason it doesn't update currentReplyIndex
@@ -109,7 +129,7 @@ internal void __cdecl SkipNode(BioConversationController *controller)
   BioConversationEntry entry = controller->conversation->entriesList[controller->currentEntryIndex];
   if (!entry.skippable && (controller->topicFlags & Topic_IsVoicePlaying)
     && (controller->currentReplyIndex < 0)) {
-    return;
+    return false;
   }
   
   //FIX(adm244): don't set skip flag if entry has more than one reply
@@ -128,11 +148,18 @@ internal void __cdecl SkipNode(BioConversationController *controller)
     BioWorldInfo *worldInfo = GetBioWorldInfo();
     worldInfo->flags &= ~WorldInfo_IsPaused;
   }
+  
+  if (FOVOPlaying) {
+    FOVOPlaying = false;
+    return false;
+  }
+  
+  return true;
 }
 
-internal void __cdecl WorldTick(BioWorldInfo *world)
+/*internal void __cdecl WorldTick(BioWorldInfo *world)
 {
-  /*if (PauseWorld) {
+  if (PauseWorld) {
     if(!(world->flags & WorldInfo_IsPaused)) {
       world->flags |= WorldInfo_IsPaused;
     }
@@ -140,16 +167,18 @@ internal void __cdecl WorldTick(BioWorldInfo *world)
     if(world->flags & WorldInfo_IsPaused) {
       world->flags &= ~WorldInfo_IsPaused;
     }
-  }*/
-}
+  }
+}*/
 
 internal void *skip_jz_dest_address = 0;
 //internal void *skip_jnz_dest_address = 0;
 internal void *skip_post_jnz_address = 0;
 
 internal void *skip_node_post_address = 0;
+//internal void *world_tick_post_address = 0;
 
-internal void *world_tick_post_address = 0;
+internal void *fovo_jz_dest_address = 0;
+internal void *fovo_post_address = 0;
 
 internal __declspec(naked) void IsSkipped_Hook()
 {
@@ -187,6 +216,40 @@ internal __declspec(naked) void IsSkipped_Hook()
   }
 }
 
+internal __declspec(naked) void IsSkippedPreFOVO_Hook()
+{
+  __asm {
+    push ebx
+    push esi
+    push edi
+    push ebp
+    push esp
+    
+    push edi
+    push ebx
+    call IsSkippedPreFOVO
+    add esp, 8
+    
+    pop esp
+    pop ebp
+    pop edi
+    pop esi
+    pop ebx
+    
+    test al, al
+    jz dont_skip
+    jmp skip
+    
+  dont_skip:
+    jmp [fovo_jz_dest_address]
+    
+  skip:
+    mov eax, [ebx+54h]
+    test [eax+1Ch], 1
+    jmp [fovo_post_address]
+  }
+}
+
 internal __declspec(naked) void SkipNode_Hook()
 {
   __asm {
@@ -206,7 +269,10 @@ internal __declspec(naked) void SkipNode_Hook()
     pop edi
     pop esi
     pop ebx
+    
+    test al, al
     pop eax
+    jz dont_skip
     
     push ebx
     push esi
@@ -214,6 +280,10 @@ internal __declspec(naked) void SkipNode_Hook()
     mov edi, ecx
     
     jmp [skip_node_post_address]
+    
+  dont_skip:
+    mov eax, ecx
+    retn
   }
 }
 
@@ -243,7 +313,7 @@ internal __declspec(naked) void RepliesInactive_Hook()
   }
 }
 
-internal __declspec(naked) void WorldTick_Hook()
+/*internal __declspec(naked) void WorldTick_Hook()
 {
   __asm {
     push ebx
@@ -269,7 +339,7 @@ internal __declspec(naked) void WorldTick_Hook()
     
     jmp [world_tick_post_address]
   }
-}
+}*/
 
 internal void * GetBioConversationControllerVTable(MODULEINFO *baseModuleInfo, void *beginAddress, void *endAddress)
 {
@@ -375,7 +445,26 @@ internal void PatchNeedToDisplayReplies(BioConversationControllerVTable *vtable)
   WriteDetour(patch_inactive_ptr, &RepliesInactive_Hook, 0);
 }
 
-internal void PatchBioWorldInfoTickLocal(MODULEINFO *baseModuleInfo)
+internal void PatchFOVOUpdateConversation(MODULEINFO *baseModuleInfo)
+{
+  void *patch_ptr = (void *)FindSignature(baseModuleInfo,
+    "\x8B\x17\x8B\x82\x50\x04\x00\x00\x53\x8B\xCF\xFF\xD0",
+    "xxxxxxxxxxxxx", 0x15);
+  
+  assert((u32)patch_ptr == 0x00DC7FC8);
+  
+  void *jz_dest_ptr = RIPRel32((u8 *)patch_ptr - 0x4, 0);
+  
+  assert((u32)jz_dest_ptr == 0x00DC8283);
+  
+  //fovo_jz_dest_address = jz_dest_ptr;
+  fovo_jz_dest_address = (void *)0x00DC8268;
+  fovo_post_address = (u8 *)patch_ptr + 0x7;
+  
+  WriteDetour(patch_ptr, &IsSkippedPreFOVO_Hook, 2);
+}
+
+/*internal void PatchBioWorldInfoTickLocal(MODULEINFO *baseModuleInfo)
 {
   void *patch_ptr = (void *)FindSignature(baseModuleInfo,
     "\x8B\x8E\xA8\x07\x00\x00\xD9\x45\x08\x8B\x01\x8B\x90\x78\x01\x00\x00",
@@ -386,7 +475,7 @@ internal void PatchBioWorldInfoTickLocal(MODULEINFO *baseModuleInfo)
   world_tick_post_address = (u8 *)patch_ptr + 0x6;
   
   WriteDetour(patch_ptr, &WorldTick_Hook, 1);
-}
+}*/
 
 internal void PatchIsVOOverCheck(MODULEINFO *baseModuleInfo)
 {
@@ -423,9 +512,10 @@ internal void PatchExecutable()
   PatchUpdateConversation(BioConversationManager_vtable);
   PatchSkipNode(BioConversationController_vtable);
   PatchNeedToDisplayReplies(BioConversationController_vtable);
+  PatchFOVOUpdateConversation(&baseModuleInfo);
   
   //NOTE(adm244): allows us to pause world updates
-  PatchBioWorldInfoTickLocal(&baseModuleInfo);
+  //PatchBioWorldInfoTickLocal(&baseModuleInfo);
   
   //NOTE(adm244): fixes subtitles disappearing after VO is finished
   PatchIsVOOverCheck(&baseModuleInfo);
