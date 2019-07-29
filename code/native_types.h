@@ -193,16 +193,25 @@ struct LevelUnk {
   BioWorldInfo *worldInfo; // 0x0
 };
 
+struct Sequence {
+  void *vtable;
+};
+
 struct Level {
   void *vtable; // 0x0
   u8 unk04[0x3C-0x04];
-  LevelUnk *unk;
+  LevelUnk *unk; // 0x3C
+  u8 unk40[0xA0-0x40];
+  Sequence *sequences; // 0xA0
+  u32 sequencesCount; // 0xA4
 };
 
 struct World {
   void *vtable; // 0x0
   u8 unk04[0x54-0x04];
-  Level *level;
+  Level *level; // 0x54
+  u32 unk58;
+  Level *level2; // 0x5C (same as level at 0x54)
 };
 
 struct BioSeqAct_FaceOnlyVO {

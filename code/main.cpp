@@ -110,7 +110,7 @@ internal bool __cdecl IsSkippedPreFOVO(BioSeqAct_FaceOnlyVO *fovo, BioWorldInfo 
     
     FOVOPlaying = true;
     
-    worldInfo->vtable->SetFOVOAsPlaying(worldInfo, fovo);
+    //worldInfo->vtable->SetFOVOAsPlaying(worldInfo, fovo);
   
     return false;
   }
@@ -150,7 +150,7 @@ internal bool __cdecl SkipNode(BioConversationController *controller)
   }
   
   if (FOVOPlaying) {
-    FOVOPlaying = false;
+    //FOVOPlaying = false;
     return false;
   }
   
