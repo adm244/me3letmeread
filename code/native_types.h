@@ -164,11 +164,12 @@ struct BioConversationController {
   BioConversationControllerVTable *vtable; // 0x0
   u8 unk04[0x200-0x4];
   BioConversation *conversation; // 0x200
-  void *unk204;
+  BioConversationManager *manager; // 0x204
   u32 currentEntryIndex; // 0x208
   u8 unk20C[0x224-0x20C];
   u32 currentReplyIndex; // 0x224
-  u8 unk228[0x254-0x228];
+  void *seqAct_startconv; // 0x228
+  u8 unk22C[0x254-0x22C];
   u32 topicFlags; // 0x254
   u8 unk258[0x2A0-0x258];
   u32 dialogFlags; // 0x2A0
@@ -181,11 +182,29 @@ struct BioWorldInfoVTable {
   _BioWorldInfo_SetFOVOAsPlaying SetFOVOAsPlaying;
 };
 
+struct BioSubtitlesTextInfo {
+  BioString text; // 0x0
+  u32 unk0C;
+  float duration; // 0x10
+};
+
+struct BioSubtitles {
+  void *vtable; // 0x0
+  u8 unk04[0x3C-0x04];
+  BioSubtitlesTextInfo *textInfo; // 0x3C
+  u32 unk40;
+  u32 unk44;
+  u32 unk48;
+  u32 visible; // 0x4C
+};
+
 struct BioWorldInfo {
   BioWorldInfoVTable *vtable; // 0x0
   u8 unk04[0x648-0x04];
   u32 flags; // 0x648
-  u8 unk64C[0x7D4-0x64C];
+  u8 unk64C[0x7B4-0x64C];
+  BioSubtitles *subtitles; // 0x7B4
+  u8 unk7B8[0x7D4-0x7B8];
 };
 assert_size(BioWorldInfo, 0x7D4);
 
@@ -194,7 +213,30 @@ struct LevelUnk {
 };
 
 struct Sequence {
-  void *vtable;
+  void *vtable; // 0x0
+  u8 unk04[0x140-0x04];
+};
+assert_size(Sequence, 0x140);
+
+struct InterpData {
+  void *vtable; // 0x0
+  u8 unk04[0x28-0x04];
+  Sequence *sequence; // 0x28
+  u8 unk2C[0x94-0x2C];
+};
+assert_size(InterpData, 0x94);
+
+struct SeqAct_Interp {
+  void *vtable; // 0x0
+  u8 unk04[0xF8-0x04];
+  float currentTime; // 0xF8
+  u32 unkFC;
+  InterpData *interpData; // 0x100
+  u32 unk104;
+  u32 unk108;
+  u32 unk10C;
+  u32 unk110;
+  u32 flags; // 0x114
 };
 
 struct Level {
@@ -212,6 +254,8 @@ struct World {
   Level *level; // 0x54
   u32 unk58;
   Level *level2; // 0x5C (same as level at 0x54)
+  u8 unk60[0x194-0x60];
+  u32 cleanup; // 0x194
 };
 
 struct BioSeqAct_FaceOnlyVO {

@@ -52,6 +52,40 @@ internal BioWorldInfo * GetBioWorldInfo()
   return level->unk->worldInfo;
 }
 
+internal bool PauseSequence = false;
+
+internal void SubSequenceTick(SeqAct_Interp *sequence, float dt)
+{
+  BioWorldInfo *worldInfo = GetBioWorldInfo();
+  
+  BioSubtitles *subtitles = worldInfo->subtitles;
+  if (!subtitles) {
+    return;
+  }
+  
+  BioSubtitlesTextInfo *textInfo = subtitles->textInfo;
+  if (!textInfo) {
+    return;
+  }
+  
+  float subtitleDuration = textInfo->duration;
+  if (subtitleDuration <= 0) {
+    return;
+  }
+  
+  //TODO(adm244): get all VO\FOVO's in the subsequence and calculate next stopping time
+  float endTime = subtitleDuration;
+  
+  if ((sequence->currentTime + dt) >= endTime) {
+    PauseSequence = true;
+  }
+}
+
+internal bool IsSequencePaused()
+{
+  return PauseSequence;
+}
+
 internal bool ShouldReply(BioConversationController *conversation)
 {
   return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
@@ -82,23 +116,28 @@ internal bool __cdecl IsSkipped(BioConversationController *controller)
   */
   
   if (!controller->vtable->IsCurrentlyAmbient(controller) && !ShouldReply(controller)) {
-    bool isSkipped = (controller->topicFlags & Topic_Patch_ManualSkip);
-    controller->topicFlags &= ~Topic_Patch_ManualSkip;
+    /*bool isSkipped = (controller->topicFlags & Topic_Patch_ManualSkip);
+    controller->topicFlags &= ~Topic_Patch_ManualSkip;*/
     
-    if (!isSkipped && !PauseWorld && !(controller->topicFlags & Topic_IsVoicePlaying)) {
+    if (/*!isSkipped &&*/ !PauseWorld && !(controller->topicFlags & Topic_IsVoicePlaying)) {
       PauseWorld = true;
       
-      BioWorldInfo *worldInfo = GetBioWorldInfo();
-      worldInfo->flags |= WorldInfo_IsPaused;
+      /*BioWorldInfo *worldInfo = GetBioWorldInfo();
+      worldInfo->flags |= WorldInfo_IsPaused;*/
+      void *p = (void *)0x006E86EB;
+      u8 nops[] = {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
+      WriteMemory(p, (void *)nops, 8);
+      
+      return false;
     }
     
-    return isSkipped;
+    //return isSkipped;
   }
   
   return true;
 }
 
-internal bool FOVOPlaying = false;
+/*internal bool FOVOPlaying = false;
 
 internal bool __cdecl IsSkippedPreFOVO(BioSeqAct_FaceOnlyVO *fovo, BioWorldInfo *worldInfo)
 {
@@ -116,7 +155,7 @@ internal bool __cdecl IsSkippedPreFOVO(BioSeqAct_FaceOnlyVO *fovo, BioWorldInfo 
   }
   
   return true;
-}
+}*/
 
 internal bool __cdecl SkipNode(BioConversationController *controller)
 {
@@ -126,31 +165,40 @@ internal bool __cdecl SkipNode(BioConversationController *controller)
     return;
   }*/
   
-  BioConversationEntry entry = controller->conversation->entriesList[controller->currentEntryIndex];
+  /*BioConversationEntry entry = controller->conversation->entriesList[controller->currentEntryIndex];
   if (!entry.skippable && (controller->topicFlags & Topic_IsVoicePlaying)
     && (controller->currentReplyIndex < 0)) {
     return false;
-  }
+  }*/
   
   //FIX(adm244): don't set skip flag if entry has more than one reply
   //TODO(adm244): get replyList length
   
-  if ((controller->topicFlags & Topic_IsVoicePlaying)
+  /*if ((controller->topicFlags & Topic_IsVoicePlaying)
     || !(controller->topicFlags & Topic_Patch_DialogWheelActive)) {
     controller->topicFlags |= Topic_Patch_ManualSkip;
-  }
+  }*/
   
-  if (PauseWorld) {
+  /*if (PauseWorld) {
     PauseWorld = false;
     
     //FIX(adm244): animations seems to get reset on resume (just set\clear some flag?)
     
-    BioWorldInfo *worldInfo = GetBioWorldInfo();
-    worldInfo->flags &= ~WorldInfo_IsPaused;
-  }
+    //BioWorldInfo *worldInfo = GetBioWorldInfo();
+    //worldInfo->flags &= ~WorldInfo_IsPaused;
+    
+    void *p = (void *)0x006E86EB;
+    u8 movss[] = {0xF3, 0x0F, 0x11, 0x83, 0xF8, 0x00, 0x00, 0x00};
+    WriteMemory(p, movss, 8);
+  }*/
   
-  if (FOVOPlaying) {
+  /*if (FOVOPlaying) {
     //FOVOPlaying = false;
+    return false;
+  }*/
+  
+  if (PauseSequence) {
+    PauseSequence = false;
     return false;
   }
   
@@ -179,6 +227,9 @@ internal void *skip_node_post_address = 0;
 
 internal void *fovo_jz_dest_address = 0;
 internal void *fovo_post_address = 0;
+
+internal void *subsequence_tick_post_address = 0;
+internal void *subsequence_tick_update_post_address = 0;
 
 internal __declspec(naked) void IsSkipped_Hook()
 {
@@ -216,7 +267,7 @@ internal __declspec(naked) void IsSkipped_Hook()
   }
 }
 
-internal __declspec(naked) void IsSkippedPreFOVO_Hook()
+/*internal __declspec(naked) void IsSkippedPreFOVO_Hook()
 {
   __asm {
     push ebx
@@ -248,7 +299,7 @@ internal __declspec(naked) void IsSkippedPreFOVO_Hook()
     test [eax+1Ch], 1
     jmp [fovo_post_address]
   }
-}
+}*/
 
 internal __declspec(naked) void SkipNode_Hook()
 {
@@ -340,6 +391,64 @@ internal __declspec(naked) void RepliesInactive_Hook()
     jmp [world_tick_post_address]
   }
 }*/
+
+internal __declspec(naked) void SubSequenceTick_Hook()
+{
+  __asm {
+    push ebx
+    push esi
+    push edi
+    push ebp
+    push esp
+    
+    mov eax, [ebp+0x8]
+    push eax
+    push ecx
+    call SubSequenceTick
+    pop ecx
+    pop eax
+    
+    pop esp
+    pop ebp
+    pop edi
+    pop esi
+    pop ebx
+    
+    push ebp
+    mov ebp, esp
+    push ebx
+    mov ebx, ecx
+    
+    jmp [subsequence_tick_post_address]
+  }
+}
+
+internal __declspec(naked) void SubSequenceTickCheck_Hook()
+{
+  __asm {
+    push ebx
+    push esi
+    push edi
+    push ebp
+    push esp
+    
+    call IsSequencePaused
+    
+    pop esp
+    pop ebp
+    pop edi
+    pop esi
+    pop ebx
+    
+    test al, al
+    jnz dont_update
+    
+    movss [ebx+0xF8], xmm0
+    
+  dont_update:
+    jmp [subsequence_tick_update_post_address]
+  }
+}
 
 internal void * GetBioConversationControllerVTable(MODULEINFO *baseModuleInfo, void *beginAddress, void *endAddress)
 {
@@ -445,7 +554,7 @@ internal void PatchNeedToDisplayReplies(BioConversationControllerVTable *vtable)
   WriteDetour(patch_inactive_ptr, &RepliesInactive_Hook, 0);
 }
 
-internal void PatchFOVOUpdateConversation(MODULEINFO *baseModuleInfo)
+/*internal void PatchFOVOUpdateConversation(MODULEINFO *baseModuleInfo)
 {
   void *patch_ptr = (void *)FindSignature(baseModuleInfo,
     "\x8B\x17\x8B\x82\x50\x04\x00\x00\x53\x8B\xCF\xFF\xD0",
@@ -462,7 +571,7 @@ internal void PatchFOVOUpdateConversation(MODULEINFO *baseModuleInfo)
   fovo_post_address = (u8 *)patch_ptr + 0x7;
   
   WriteDetour(patch_ptr, &IsSkippedPreFOVO_Hook, 2);
-}
+}*/
 
 /*internal void PatchBioWorldInfoTickLocal(MODULEINFO *baseModuleInfo)
 {
@@ -489,6 +598,17 @@ internal void PatchIsVOOverCheck(MODULEINFO *baseModuleInfo)
   WriteMemory(patch_ptr, jmp8_opcode, 1);
 }
 
+internal void PatchSubSequence()
+{
+  void *patch_ptr = (void *)0x006E8560;
+  subsequence_tick_post_address = (u8 *)patch_ptr + 6;
+  WriteDetour(patch_ptr, &SubSequenceTick_Hook, 1);
+  
+  patch_ptr = (void *)0x006E86EB;
+  subsequence_tick_update_post_address = (u8 *)patch_ptr + 0x8;
+  WriteDetour(patch_ptr, &SubSequenceTickCheck_Hook, 3);
+}
+
 internal void PatchExecutable()
 {
   HANDLE processHandle = GetCurrentProcess();
@@ -509,16 +629,18 @@ internal void PatchExecutable()
   assert((u32)BioConversationManager_vtable == 0x01804E98);
   assert((u32)BioConversationController_vtable == 0x01803F50);
   
-  PatchUpdateConversation(BioConversationManager_vtable);
+  //PatchUpdateConversation(BioConversationManager_vtable);
   PatchSkipNode(BioConversationController_vtable);
-  PatchNeedToDisplayReplies(BioConversationController_vtable);
-  PatchFOVOUpdateConversation(&baseModuleInfo);
+  //PatchNeedToDisplayReplies(BioConversationController_vtable);
+  //PatchFOVOUpdateConversation(&baseModuleInfo);
   
   //NOTE(adm244): allows us to pause world updates
   //PatchBioWorldInfoTickLocal(&baseModuleInfo);
   
   //NOTE(adm244): fixes subtitles disappearing after VO is finished
-  PatchIsVOOverCheck(&baseModuleInfo);
+  //PatchIsVOOverCheck(&baseModuleInfo);
+  
+  PatchSubSequence();
 }
 
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
