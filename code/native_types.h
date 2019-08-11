@@ -222,13 +222,59 @@ struct InterpData {
   void *vtable; // 0x0
   u8 unk04[0x28-0x04];
   Sequence *sequence; // 0x28
-  u8 unk2C[0x94-0x2C];
+  u8 unk2C[0x74-0x2C];
+  float length; // 0x74
+  u8 unk78[0x94-0x78];
 };
 assert_size(InterpData, 0x94);
 
+struct BioInterpTrack {
+  void *vtable; // 0x0
+};
+
+struct BioTrackKey {
+  u32 unk00;
+  u32 unk04;
+  float time; // 0x08
+};
+assert_size(BioTrackKey, 0x0C);
+
+struct BioEvtSysTrackVOElements {
+  void *vtable; // 0x0
+  u8 unk04[0x5C-0x04];
+  BioTrackKey *trackKeys; // 0x5C
+  u32 trackKeysCount; // 0x60
+  u32 unk64;
+  u32 unk68;
+  u32 unk6C;
+  u32 textRefId; // 0x70
+};
+
+struct InterpGroup {
+  void *vtable; // 0x0
+  u8 unk04[0x28-0x04];
+  InterpData *interpData; // 0x28
+  u32 unk2C;
+  u32 unk30;
+  u32 unk34;
+  u32 unk38;
+  u32 unk3C;
+  BioInterpTrack **tracks; // 0x40
+  u32 tracksCount; // 0x44
+};
+
+struct InterpGroupInst {
+  void *vtable; // 0x0
+  u8 unk04[0x48-0x04];
+  InterpGroup *group; // 0x48
+};
+
 struct SeqAct_Interp {
   void *vtable; // 0x0
-  u8 unk04[0xF8-0x04];
+  u8 unk04[0xD8-0x04];
+  InterpGroupInst **groupInsts; // 0xD8
+  u32 groupInstsCount; // 0xDC
+  u8 unkE0[0xF8-0xE0];
   float currentTime; // 0xF8
   u32 unkFC;
   InterpData *interpData; // 0x100

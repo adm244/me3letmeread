@@ -53,32 +53,100 @@ internal BioWorldInfo * GetBioWorldInfo()
 }
 
 internal bool PauseSequence = false;
+internal bool NodeSkipped = false;
 
-internal void SubSequenceTick(SeqAct_Interp *sequence, float dt)
+internal bool __cdecl SubSequenceTick(SeqAct_Interp *sequence, float dt)
 {
+  if (PauseSequence) {
+    return true; // false?
+  }
+  
+  if (sequence->flags & 0x80000000) {
+    return true;
+  }
+
   BioWorldInfo *worldInfo = GetBioWorldInfo();
   
-  BioSubtitles *subtitles = worldInfo->subtitles;
+  /*BioSubtitles *subtitles = worldInfo->subtitles;
   if (!subtitles) {
-    return;
+    return true;
+  }
+  
+  if (!subtitles->visible) {
+    return true;
   }
   
   BioSubtitlesTextInfo *textInfo = subtitles->textInfo;
   if (!textInfo) {
-    return;
+    return true;
   }
   
   float subtitleDuration = textInfo->duration;
   if (subtitleDuration <= 0) {
+    return true;
+  }*/
+  
+  InterpData *interpData = sequence->interpData;
+  if (!interpData) {
+    return true;
+  }
+  
+  /*if (sequence->currentTime >= interpData->length) {
+    return;
+  }*/
+  
+  //TODO(adm244): skip non-conversation (and ambients)
+  //FIX(adm244): sometimes cannot skip replies...
+  
+  float startTime = interpData->length;
+  bool foundVOElements = false;
+  
+  InterpGroupInst **groupInsts = sequence->groupInsts;
+  for (int i = 0; i < sequence->groupInstsCount; ++i) {
+    InterpGroup *group = groupInsts[i]->group;
+    BioInterpTrack **tracks = group->tracks;
+    for (int j = 0; j < group->tracksCount; ++j) {
+      BioInterpTrack *track = tracks[j];
+      if ((u32)track->vtable == 0x018095D8) {
+        BioEvtSysTrackVOElements *voTrack = (BioEvtSysTrackVOElements *)track;
+        
+        //TODO(adm244): check if textRefId's for voTrack and BioSubtitles are equal
+        //TODO(adm244): pause on sequence length if there's no FOVO's
+        
+        BioTrackKey trackKey = voTrack->trackKeys[0];
+        /*if ((trackKey.time < startTime) && (trackKey.time >= sequence->currentTime)) {
+          startTime = trackKey.time;
+          foundVOElements = true;
+        }*/
+        foundVOElements = true;
+      }
+    }
+  }
+  
+  if (!foundVOElements) {
+    return true;
+  }
+  
+  float endTime = startTime;
+  //float endTime = startTime + subtitleDuration;
+  
+  //TODO(adm244): get all VO\FOVO's in the subsequence and calculate next stopping time
+  //float endTime = subtitleDuration;
+  
+  /*InterpData *interpData = sequence->interpData;
+  if (!interpData) {
     return;
   }
   
-  //TODO(adm244): get all VO\FOVO's in the subsequence and calculate next stopping time
-  float endTime = subtitleDuration;
+  float endTime = interpData->length;*/
   
-  if ((sequence->currentTime + dt) >= endTime) {
+  if ((sequence->currentTime + 0.5f) >= endTime) {
     PauseSequence = true;
+    sequence->flags |= 0x80000000;
+    return false;
   }
+  
+  return true;
 }
 
 internal bool IsSequencePaused()
@@ -86,56 +154,56 @@ internal bool IsSequencePaused()
   return PauseSequence;
 }
 
-internal bool ShouldReply(BioConversationController *conversation)
-{
-  return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
-}
+//internal bool ShouldReply(BioConversationController *conversation)
+//{
+//  return (conversation->topicFlags & Topic_Patch_DialogWheelActive);
+//}
 
-internal bool __cdecl IsSkipped(BioConversationController *controller)
-{
-  /*//NOTE(adm244): fixes infinite-loading bug
-  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
-  if (entry.flags & Entry_NonTextline) {
-    return true;
-  }
-  */
-  
-  /*
-  //NOTE(adm244): skipes "empty" replies
-  if (conversation->currentReplyIndex >= 0) {
-    BioConversationEntryReply entryReply = entry.replyList[conversation->currentReplyIndex];
-  
-    BioString replyText = {0};
-    BioConversationController_GetReplyText_Internal(1, entryReply.index, conversation, &replyText);
-    
-    //NOTE(adm244): probably should check if string contains only whitespaces or empty
-    if (replyText.length < 3) {
-      return true;
-    }
-  }
-  */
-  
-  if (!controller->vtable->IsCurrentlyAmbient(controller) && !ShouldReply(controller)) {
-    /*bool isSkipped = (controller->topicFlags & Topic_Patch_ManualSkip);
-    controller->topicFlags &= ~Topic_Patch_ManualSkip;*/
-    
-    if (/*!isSkipped &&*/ !PauseWorld && !(controller->topicFlags & Topic_IsVoicePlaying)) {
-      PauseWorld = true;
-      
-      /*BioWorldInfo *worldInfo = GetBioWorldInfo();
-      worldInfo->flags |= WorldInfo_IsPaused;*/
-      void *p = (void *)0x006E86EB;
-      u8 nops[] = {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
-      WriteMemory(p, (void *)nops, 8);
-      
-      return false;
-    }
-    
-    //return isSkipped;
-  }
-  
-  return true;
-}
+//internal bool __cdecl IsSkipped(BioConversationController *controller)
+//{
+//  /*//NOTE(adm244): fixes infinite-loading bug
+//  BioConversationEntry entry = conversation->entryList[conversation->currentEntryIndex];
+//  if (entry.flags & Entry_NonTextline) {
+//    return true;
+//  }
+//  */
+//  
+//  /*
+//  //NOTE(adm244): skipes "empty" replies
+//  if (conversation->currentReplyIndex >= 0) {
+//    BioConversationEntryReply entryReply = entry.replyList[conversation->currentReplyIndex];
+//  
+//    BioString replyText = {0};
+//    BioConversationController_GetReplyText_Internal(1, entryReply.index, conversation, &replyText);
+//    
+//    //NOTE(adm244): probably should check if string contains only whitespaces or empty
+//    if (replyText.length < 3) {
+//      return true;
+//    }
+//  }
+//  */
+//  
+//  if (!controller->vtable->IsCurrentlyAmbient(controller) && !ShouldReply(controller)) {
+//    /*bool isSkipped = (controller->topicFlags & Topic_Patch_ManualSkip);
+//    controller->topicFlags &= ~Topic_Patch_ManualSkip;*/
+//    
+//    if (/*!isSkipped &&*/ !PauseWorld && !(controller->topicFlags & Topic_IsVoicePlaying)) {
+//      PauseWorld = true;
+//      
+//      /*BioWorldInfo *worldInfo = GetBioWorldInfo();
+//      worldInfo->flags |= WorldInfo_IsPaused;*/
+//      void *p = (void *)0x006E86EB;
+//      u8 nops[] = {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
+//      WriteMemory(p, (void *)nops, 8);
+//      
+//      return false;
+//    }
+//    
+//    //return isSkipped;
+//  }
+//  
+//  return true;
+//}
 
 /*internal bool FOVOPlaying = false;
 
@@ -218,54 +286,54 @@ internal bool __cdecl SkipNode(BioConversationController *controller)
   }
 }*/
 
-internal void *skip_jz_dest_address = 0;
+//internal void *skip_jz_dest_address = 0;
 //internal void *skip_jnz_dest_address = 0;
-internal void *skip_post_jnz_address = 0;
+//internal void *skip_post_jnz_address = 0;
 
 internal void *skip_node_post_address = 0;
 //internal void *world_tick_post_address = 0;
 
-internal void *fovo_jz_dest_address = 0;
-internal void *fovo_post_address = 0;
+//internal void *fovo_jz_dest_address = 0;
+//internal void *fovo_post_address = 0;
 
 internal void *subsequence_tick_post_address = 0;
 internal void *subsequence_tick_update_post_address = 0;
 
-internal __declspec(naked) void IsSkipped_Hook()
-{
-  __asm {
-    push ebx
-    push esi
-    push edi
-    push ebp
-    push esp
-    
-    push ebx
-    call IsSkipped
-    add esp, 4
-    
-    pop esp
-    pop ebp
-    pop edi
-    pop esi
-    pop ebx
-    
-    test al, al
-    jz dont_skip_dialog
-    jmp skip_dialog
-    
-  dont_skip_dialog:
-    jmp [skip_jz_dest_address]
-    
-  skip_dialog:
-    cmp [ebp-10], edi
-    je jz_jump
-    jmp [skip_post_jnz_address]
-  
-  jz_jump:
-    jmp [skip_jz_dest_address]
-  }
-}
+//internal __declspec(naked) void IsSkipped_Hook()
+//{
+//  __asm {
+//    push ebx
+//    push esi
+//    push edi
+//    push ebp
+//    push esp
+//    
+//    push ebx
+//    call IsSkipped
+//    add esp, 4
+//    
+//    pop esp
+//    pop ebp
+//    pop edi
+//    pop esi
+//    pop ebx
+//    
+//    test al, al
+//    jz dont_skip_dialog
+//    jmp skip_dialog
+//    
+//  dont_skip_dialog:
+//    jmp [skip_jz_dest_address]
+//    
+//  skip_dialog:
+//    cmp [ebp-10], edi
+//    je jz_jump
+//    jmp [skip_post_jnz_address]
+//  
+//  jz_jump:
+//    jmp [skip_jz_dest_address]
+//  }
+//}
 
 /*internal __declspec(naked) void IsSkippedPreFOVO_Hook()
 {
@@ -338,31 +406,31 @@ internal __declspec(naked) void SkipNode_Hook()
   }
 }
 
-internal __declspec(naked) void RepliesActive_Hook()
-{
-  //NOTE(adm244): is there a way to shove an 'offsetof' constant into inline asm?
-  __asm {
-    mov eax, Topic_Patch_DialogWheelActive
-    or [esi+254h], eax
-    
-    mov eax, 1
-    pop esi
-    retn
-  }
-}
+//internal __declspec(naked) void RepliesActive_Hook()
+//{
+//  //NOTE(adm244): is there a way to shove an 'offsetof' constant into inline asm?
+//  __asm {
+//    mov eax, Topic_Patch_DialogWheelActive
+//    or [esi+254h], eax
+//    
+//    mov eax, 1
+//    pop esi
+//    retn
+//  }
+//}
 
-internal __declspec(naked) void RepliesInactive_Hook()
-{
-  __asm {
-    mov eax, Topic_Patch_DialogWheelActive
-    not eax
-    and [esi+254h], eax
-    
-    xor eax, eax
-    pop esi
-    retn
-  }
-}
+//internal __declspec(naked) void RepliesInactive_Hook()
+//{
+//  __asm {
+//    mov eax, Topic_Patch_DialogWheelActive
+//    not eax
+//    and [esi+254h], eax
+//    
+//    xor eax, eax
+//    pop esi
+//    retn
+//  }
+//}
 
 /*internal __declspec(naked) void WorldTick_Hook()
 {
@@ -406,7 +474,7 @@ internal __declspec(naked) void SubSequenceTick_Hook()
     push ecx
     call SubSequenceTick
     pop ecx
-    pop eax
+    add esp, 4
     
     pop esp
     pop ebp
@@ -414,12 +482,18 @@ internal __declspec(naked) void SubSequenceTick_Hook()
     pop esi
     pop ebx
     
+    test al, al
+    jz skip
+    
     push ebp
     mov ebp, esp
     push ebx
     mov ebx, ecx
     
     jmp [subsequence_tick_post_address]
+    
+  skip:
+    retn 0xC
   }
 }
 
@@ -478,57 +552,57 @@ internal void * GetBioConversationControllerVTable(MODULEINFO *baseModuleInfo, v
   return vtable;
 }
 
-internal void * GetBioConversationManagerVTable(MODULEINFO *baseModuleInfo, void *beginAddress, void *endAddress)
-{
-  wchar_t *name = L"BioConversationManager";
-  void *stringLocation = FindWString(beginAddress, endAddress, name);
-  assert(stringLocation != 0);
-  
-  char pattern[5];
-  *((u32 *)pattern) = (u32)stringLocation;
-  pattern[4] = 0;
-  
-  void *stringMOVLocation = (void *)FindSignature(baseModuleInfo, pattern, 0, -1);
-  assert(stringMOVLocation != 0);
-  assert(*((u8 *)stringMOVLocation) == 0xB9);
-  
-  void *constructor = (void *)(*((u32 *)((u8 *)stringMOVLocation - 0x16)));
-  assert(constructor != 0);
-  
-  void *constructor_inner = RIPRel32((u8 *)constructor + 0xB, 1);
-  assert(constructor_inner != 0);
-  
-  void *vtable = (void *)(*((u32 *)((u8 *)constructor_inner + 0x34)));
-  assert(vtable != 0);
-  
-  assert((u32)vtable == 0x01804E98);
-  
-  return vtable;
-}
+//internal void * GetBioConversationManagerVTable(MODULEINFO *baseModuleInfo, void *beginAddress, void *endAddress)
+//{
+//  wchar_t *name = L"BioConversationManager";
+//  void *stringLocation = FindWString(beginAddress, endAddress, name);
+//  assert(stringLocation != 0);
+//  
+//  char pattern[5];
+//  *((u32 *)pattern) = (u32)stringLocation;
+//  pattern[4] = 0;
+//  
+//  void *stringMOVLocation = (void *)FindSignature(baseModuleInfo, pattern, 0, -1);
+//  assert(stringMOVLocation != 0);
+//  assert(*((u8 *)stringMOVLocation) == 0xB9);
+//  
+//  void *constructor = (void *)(*((u32 *)((u8 *)stringMOVLocation - 0x16)));
+//  assert(constructor != 0);
+//  
+//  void *constructor_inner = RIPRel32((u8 *)constructor + 0xB, 1);
+//  assert(constructor_inner != 0);
+//  
+//  void *vtable = (void *)(*((u32 *)((u8 *)constructor_inner + 0x34)));
+//  assert(vtable != 0);
+//  
+//  assert((u32)vtable == 0x01804E98);
+//  
+//  return vtable;
+//}
 
-internal void PatchUpdateConversation(BioConversationManagerVTable *vtable)
-{
-  void *BioConversationController_UpdateConversation = RIPRel32((u8 *)(*vtable->UpdateConversation) + 0x33C, 1);
-  
-  assert((u32)BioConversationController_UpdateConversation == 0x00C43E40);
-  
-  void *jz_ptr = (u8 *)BioConversationController_UpdateConversation + 0x4CC;
-  void *jz_dest_ptr = RIPRel32(jz_ptr, 2);
-  void *jz_post_ptr = (u8 *)jz_ptr + 0x6;
-  
-  assert((u32)jz_ptr == 0x00C4430C);
-  assert((u32)jz_dest_ptr == 0x00C44397);
-  assert((u32)jz_post_ptr == 0x00C44312);
-  
-  void *patch_ptr = (u8 *)jz_ptr - 0x3;
-  
-  assert((u32)patch_ptr == 0x00C44309);
-  
-  skip_jz_dest_address = jz_dest_ptr;
-  skip_post_jnz_address = jz_post_ptr;
-  
-  WriteDetour(patch_ptr, &IsSkipped_Hook, 4);
-}
+//internal void PatchUpdateConversation(BioConversationManagerVTable *vtable)
+//{
+//  void *BioConversationController_UpdateConversation = RIPRel32((u8 *)(*vtable->UpdateConversation) + 0x33C, 1);
+//  
+//  assert((u32)BioConversationController_UpdateConversation == 0x00C43E40);
+//  
+//  void *jz_ptr = (u8 *)BioConversationController_UpdateConversation + 0x4CC;
+//  void *jz_dest_ptr = RIPRel32(jz_ptr, 2);
+//  void *jz_post_ptr = (u8 *)jz_ptr + 0x6;
+//  
+//  assert((u32)jz_ptr == 0x00C4430C);
+//  assert((u32)jz_dest_ptr == 0x00C44397);
+//  assert((u32)jz_post_ptr == 0x00C44312);
+//  
+//  void *patch_ptr = (u8 *)jz_ptr - 0x3;
+//  
+//  assert((u32)patch_ptr == 0x00C44309);
+//  
+//  skip_jz_dest_address = jz_dest_ptr;
+//  skip_post_jnz_address = jz_post_ptr;
+//  
+//  WriteDetour(patch_ptr, &IsSkipped_Hook, 4);
+//}
 
 internal void PatchSkipNode(BioConversationControllerVTable *vtable)
 {
@@ -542,17 +616,17 @@ internal void PatchSkipNode(BioConversationControllerVTable *vtable)
   WriteDetour(patch_ptr, &SkipNode_Hook, 0);
 }
 
-internal void PatchNeedToDisplayReplies(BioConversationControllerVTable *vtable)
-{
-  void *patch_active_ptr = (u8 *)(*vtable->NeedToDisplayReplies) + 0x4B;
-  void *patch_inactive_ptr = (u8 *)(*vtable->NeedToDisplayReplies) + 0x7B;
-  
-  assert((u32)patch_active_ptr == 0x00C480FB);
-  assert((u32)patch_inactive_ptr == 0x00C4812B);
-  
-  WriteDetour(patch_active_ptr, &RepliesActive_Hook, 2);
-  WriteDetour(patch_inactive_ptr, &RepliesInactive_Hook, 0);
-}
+//internal void PatchNeedToDisplayReplies(BioConversationControllerVTable *vtable)
+//{
+//  void *patch_active_ptr = (u8 *)(*vtable->NeedToDisplayReplies) + 0x4B;
+//  void *patch_inactive_ptr = (u8 *)(*vtable->NeedToDisplayReplies) + 0x7B;
+//  
+//  assert((u32)patch_active_ptr == 0x00C480FB);
+//  assert((u32)patch_inactive_ptr == 0x00C4812B);
+//  
+//  WriteDetour(patch_active_ptr, &RepliesActive_Hook, 2);
+//  WriteDetour(patch_inactive_ptr, &RepliesInactive_Hook, 0);
+//}
 
 /*internal void PatchFOVOUpdateConversation(MODULEINFO *baseModuleInfo)
 {
@@ -586,17 +660,17 @@ internal void PatchNeedToDisplayReplies(BioConversationControllerVTable *vtable)
   WriteDetour(patch_ptr, &WorldTick_Hook, 1);
 }*/
 
-internal void PatchIsVOOverCheck(MODULEINFO *baseModuleInfo)
-{
-  void *patch_ptr = (void *)FindSignature(baseModuleInfo,
-    "\xF3\x0F\x5C\xC1\x0F\x2F\xD8\xF3\x0F\x11\x40\x10\x76\x1F",
-    "xxxxxxxxxxxxxx", 12);
-  
-  assert((u32)patch_ptr == 0x00CBE877);
-  
-  char *jmp8_opcode = "\xEB";
-  WriteMemory(patch_ptr, jmp8_opcode, 1);
-}
+//internal void PatchIsVOOverCheck(MODULEINFO *baseModuleInfo)
+//{
+//  void *patch_ptr = (void *)FindSignature(baseModuleInfo,
+//    "\xF3\x0F\x5C\xC1\x0F\x2F\xD8\xF3\x0F\x11\x40\x10\x76\x1F",
+//    "xxxxxxxxxxxxxx", 12);
+//  
+//  assert((u32)patch_ptr == 0x00CBE877);
+//  
+//  char *jmp8_opcode = "\xEB";
+//  WriteMemory(patch_ptr, jmp8_opcode, 1);
+//}
 
 internal void PatchSubSequence()
 {
@@ -623,10 +697,10 @@ internal void PatchExecutable()
   void *endAddress = (char *)beginAddress + baseModuleInfo.SizeOfImage;
   
   // get vtables
-  BioConversationManagerVTable *BioConversationManager_vtable = (BioConversationManagerVTable *)GetBioConversationManagerVTable(&baseModuleInfo, beginAddress, endAddress);
+  //BioConversationManagerVTable *BioConversationManager_vtable = (BioConversationManagerVTable *)GetBioConversationManagerVTable(&baseModuleInfo, beginAddress, endAddress);
   BioConversationControllerVTable *BioConversationController_vtable = (BioConversationControllerVTable *)GetBioConversationControllerVTable(&baseModuleInfo, beginAddress, endAddress);
   
-  assert((u32)BioConversationManager_vtable == 0x01804E98);
+  //assert((u32)BioConversationManager_vtable == 0x01804E98);
   assert((u32)BioConversationController_vtable == 0x01803F50);
   
   //PatchUpdateConversation(BioConversationManager_vtable);
@@ -648,54 +722,6 @@ internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
   if( reason == DLL_PROCESS_ATTACH )
   {
     PatchExecutable();
-  
-    //TODO(adm244): get addresses by a signature search
-    /*
-    // get function pointers for BioConversation object
-    void *bio_conversation_vtable = (void *)0x0117DF30;
-    BioConversation_NeedToDisplayReplies = (_BioConversation_NeedToDisplayReplies)(*((u32 *)bio_conversation_vtable + 102));
-    BioConversation_IsAmbient = (_BioConversation_IsAmbient)(*((u32 *)bio_conversation_vtable + 90));
-    
-    assert((u64)BioConversation_NeedToDisplayReplies == 0x00B340C0);
-    assert((u64)BioConversation_IsAmbient == 0x00B34030);
-    
-    // hook NeedToDisplayReplies function
-    void *replies_active_patch_address = (u8 *)BioConversation_NeedToDisplayReplies + 0x49;
-    void *replies_inactive_patch_address = (u8 *)BioConversation_NeedToDisplayReplies + 0x81;
-    
-    WriteDetour(replies_active_patch_address, &RepliesActive_Hook, 2);
-    WriteDetour(replies_inactive_patch_address, &RepliesInactive_Hook, 0);
-    
-    // hook UpdateConversation function
-    void *skip_jz_address = (void *)0x00B2FE97;
-    skip_jz_dest_address = RIPRel8(skip_jz_address, 1);
-    assert((u64)skip_jz_dest_address == 0x00B2FEF4);
-    
-    void *skip_address = (void *)((u64)skip_jz_address + 2);
-    void *skip_jnz_address = (void *)((u64)skip_address + 2);
-    skip_jnz_dest_address = RIPRel8(skip_jnz_address, 1);
-    skip_post_jnz_address = (void *)((u64)skip_jnz_address + 6);
-    
-    assert((u64)skip_jnz_address == 0x00B2FE9B);
-    assert((u64)skip_jnz_dest_address == 0x00B2FECA);
-    assert((u64)skip_address == 0x00B2FE99);
-    
-    WriteDetour(skip_address, &IsSkipped_Hook, 3);
-    
-    // hook SkipNode function
-    skip_node_address = (void *)(*((u32 *)((u8 *)bio_conversation_vtable + 0x160)));
-    assert((u64)skip_node_address == 0x00B30350);
-    
-    skip_node_mov_address = (void *)(*((u32 *)((u8 *)skip_node_address + 1)));
-    assert((u64)skip_node_mov_address == 0x0126A7BC);
-    
-    WriteDetour(skip_node_address, &SkipNode_Hook, 4);
-    
-    // patch BioEvtSysTrackVOElements so it won't call SkipNode
-    void *bio_event_vo_jb_address = (void *)(0x00AA23BF);
-    char *jmp8_opcode = "\xEB";
-    WriteMemory(bio_event_vo_jb_address, jmp8_opcode, 1);
-    */
   }
 
   return TRUE;
