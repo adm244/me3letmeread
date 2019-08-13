@@ -223,7 +223,7 @@ struct InterpData {
   u8 unk04[0x28-0x04];
   Sequence *sequence; // 0x28
   u8 unk2C[0x74-0x2C];
-  float length; // 0x74
+  r32 duration; // 0x74
   u8 unk78[0x94-0x78];
 };
 assert_size(InterpData, 0x94);
@@ -235,7 +235,7 @@ struct BioInterpTrack {
 struct BioTrackKey {
   u32 unk00;
   u32 unk04;
-  float time; // 0x08
+  r32 time; // 0x08
 };
 assert_size(BioTrackKey, 0x0C);
 
@@ -274,11 +274,12 @@ struct SeqAct_Interp {
   u8 unk04[0xD8-0x04];
   InterpGroupInst **groupInsts; // 0xD8
   u32 groupInstsCount; // 0xDC
-  u8 unkE0[0xF8-0xE0];
-  float currentTime; // 0xF8
+  u8 unkE0[0xF4-0xE0];
+  r32 speedMultiplier; // 0xF4
+  r32 currentTime; // 0xF8
   u32 unkFC;
   InterpData *interpData; // 0x100
-  u32 unk104;
+  void *matineeActor; // 0x104
   u32 unk108;
   u32 unk10C;
   u32 unk110;

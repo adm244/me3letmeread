@@ -43,7 +43,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 //internal _BioConversation_IsAmbient BioConversation_IsAmbient = 0;
 //internal _BioConversation_GetReplyText_Internal BioConversation_GetReplyText_Internal = (_BioConversation_GetReplyText_Internal)0x00B32440;
 
-internal bool PauseWorld = false;
+//internal bool PauseWorld = false;
 
 internal BioWorldInfo * GetBioWorldInfo()
 {
@@ -52,106 +52,111 @@ internal BioWorldInfo * GetBioWorldInfo()
   return level->unk->worldInfo;
 }
 
-internal bool PauseSequence = false;
-internal bool NodeSkipped = false;
+//internal bool PauseSequence = false;
+//internal bool NodeSkipped = false;
 
-internal bool __cdecl SubSequenceTick(SeqAct_Interp *sequence, float dt)
+//internal bool __cdecl SubSequenceTick(SeqAct_Interp *sequence, float newTime)
+//{
+//  if (PauseSequence) {
+//    return true; // false?
+//  }
+//  
+//  if (sequence->flags & 0x80000000) {
+//    return true;
+//  }
+//
+//  BioWorldInfo *worldInfo = GetBioWorldInfo();
+//  
+//  /*BioSubtitles *subtitles = worldInfo->subtitles;
+//  if (!subtitles) {
+//    return true;
+//  }
+//  
+//  if (!subtitles->visible) {
+//    return true;
+//  }
+//  
+//  BioSubtitlesTextInfo *textInfo = subtitles->textInfo;
+//  if (!textInfo) {
+//    return true;
+//  }
+//  
+//  float subtitleDuration = textInfo->duration;
+//  if (subtitleDuration <= 0) {
+//    return true;
+//  }*/
+//  
+//  InterpData *interpData = sequence->interpData;
+//  if (!interpData) {
+//    return true;
+//  }
+//  
+//  /*if (sequence->currentTime >= interpData->length) {
+//    return;
+//  }*/
+//  
+//  //TODO(adm244): skip non-conversation (and ambients)
+//  //FIX(adm244): sometimes cannot skip replies...
+//  
+//  float startTime = interpData->length;
+//  bool foundVOElements = false;
+//  
+//  InterpGroupInst **groupInsts = sequence->groupInsts;
+//  for (int i = 0; i < sequence->groupInstsCount; ++i) {
+//    InterpGroup *group = groupInsts[i]->group;
+//    BioInterpTrack **tracks = group->tracks;
+//    for (int j = 0; j < group->tracksCount; ++j) {
+//      BioInterpTrack *track = tracks[j];
+//      if ((u32)track->vtable == 0x018095D8) {
+//        BioEvtSysTrackVOElements *voTrack = (BioEvtSysTrackVOElements *)track;
+//        
+//        //TODO(adm244): check if textRefId's for voTrack and BioSubtitles are equal
+//        //TODO(adm244): pause on sequence length if there's no FOVO's
+//        
+//        BioTrackKey trackKey = voTrack->trackKeys[0];
+//        /*if ((trackKey.time < startTime) && (trackKey.time >= sequence->currentTime)) {
+//          startTime = trackKey.time;
+//          foundVOElements = true;
+//        }*/
+//        foundVOElements = true;
+//      }
+//    }
+//  }
+//  
+//  if (!foundVOElements) {
+//    return true;
+//  }
+//  
+//  float endTime = startTime;
+//  //float endTime = startTime + subtitleDuration;
+//  
+//  //TODO(adm244): get all VO\FOVO's in the subsequence and calculate next stopping time
+//  //float endTime = subtitleDuration;
+//  
+//  /*InterpData *interpData = sequence->interpData;
+//  if (!interpData) {
+//    return;
+//  }
+//  
+//  float endTime = interpData->length;*/
+//  
+//  if ((sequence->currentTime + 0.5f) >= endTime) {
+//    PauseSequence = true;
+//    sequence->flags |= 0x80000000;
+//    return false;
+//  }
+//  
+//  return true;
+//}
+//
+//internal bool IsSequencePaused()
+//{
+//  return PauseSequence;
+//}
+
+internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
 {
-  if (PauseSequence) {
-    return true; // false?
-  }
   
-  if (sequence->flags & 0x80000000) {
-    return true;
-  }
-
-  BioWorldInfo *worldInfo = GetBioWorldInfo();
-  
-  /*BioSubtitles *subtitles = worldInfo->subtitles;
-  if (!subtitles) {
-    return true;
-  }
-  
-  if (!subtitles->visible) {
-    return true;
-  }
-  
-  BioSubtitlesTextInfo *textInfo = subtitles->textInfo;
-  if (!textInfo) {
-    return true;
-  }
-  
-  float subtitleDuration = textInfo->duration;
-  if (subtitleDuration <= 0) {
-    return true;
-  }*/
-  
-  InterpData *interpData = sequence->interpData;
-  if (!interpData) {
-    return true;
-  }
-  
-  /*if (sequence->currentTime >= interpData->length) {
-    return;
-  }*/
-  
-  //TODO(adm244): skip non-conversation (and ambients)
-  //FIX(adm244): sometimes cannot skip replies...
-  
-  float startTime = interpData->length;
-  bool foundVOElements = false;
-  
-  InterpGroupInst **groupInsts = sequence->groupInsts;
-  for (int i = 0; i < sequence->groupInstsCount; ++i) {
-    InterpGroup *group = groupInsts[i]->group;
-    BioInterpTrack **tracks = group->tracks;
-    for (int j = 0; j < group->tracksCount; ++j) {
-      BioInterpTrack *track = tracks[j];
-      if ((u32)track->vtable == 0x018095D8) {
-        BioEvtSysTrackVOElements *voTrack = (BioEvtSysTrackVOElements *)track;
-        
-        //TODO(adm244): check if textRefId's for voTrack and BioSubtitles are equal
-        //TODO(adm244): pause on sequence length if there's no FOVO's
-        
-        BioTrackKey trackKey = voTrack->trackKeys[0];
-        /*if ((trackKey.time < startTime) && (trackKey.time >= sequence->currentTime)) {
-          startTime = trackKey.time;
-          foundVOElements = true;
-        }*/
-        foundVOElements = true;
-      }
-    }
-  }
-  
-  if (!foundVOElements) {
-    return true;
-  }
-  
-  float endTime = startTime;
-  //float endTime = startTime + subtitleDuration;
-  
-  //TODO(adm244): get all VO\FOVO's in the subsequence and calculate next stopping time
-  //float endTime = subtitleDuration;
-  
-  /*InterpData *interpData = sequence->interpData;
-  if (!interpData) {
-    return;
-  }
-  
-  float endTime = interpData->length;*/
-  
-  if ((sequence->currentTime + 0.5f) >= endTime) {
-    PauseSequence = true;
-    sequence->flags |= 0x80000000;
-    return false;
-  }
-  
-  return true;
-}
-
-internal bool IsSequencePaused()
-{
-  return PauseSequence;
 }
 
 //internal bool ShouldReply(BioConversationController *conversation)
@@ -265,10 +270,10 @@ internal bool __cdecl SkipNode(BioConversationController *controller)
     return false;
   }*/
   
-  if (PauseSequence) {
+  /*if (PauseSequence) {
     PauseSequence = false;
     return false;
-  }
+  }*/
   
   return true;
 }
@@ -296,8 +301,10 @@ internal void *skip_node_post_address = 0;
 //internal void *fovo_jz_dest_address = 0;
 //internal void *fovo_post_address = 0;
 
-internal void *subsequence_tick_post_address = 0;
-internal void *subsequence_tick_update_post_address = 0;
+//internal void *subsequence_tick_post_address = 0;
+//internal void *subsequence_tick_update_post_address = 0;
+
+internal void *seqact_interp_proccess_post_address = 0;
 
 //internal __declspec(naked) void IsSkipped_Hook()
 //{
@@ -460,67 +467,98 @@ internal __declspec(naked) void SkipNode_Hook()
   }
 }*/
 
-internal __declspec(naked) void SubSequenceTick_Hook()
+//internal __declspec(naked) void SubSequenceTick_Hook()
+//{
+//  __asm {
+//    push ebx
+//    push esi
+//    push edi
+//    push ebp
+//    push esp
+//    
+//    mov eax, [ebp+0x8]
+//    push eax
+//    push ecx
+//    call SubSequenceTick
+//    pop ecx
+//    add esp, 4
+//    
+//    pop esp
+//    pop ebp
+//    pop edi
+//    pop esi
+//    pop ebx
+//    
+//    test al, al
+//    jz skip
+//    
+//    push ebp
+//    mov ebp, esp
+//    push ebx
+//    mov ebx, ecx
+//    
+//    jmp [subsequence_tick_post_address]
+//    
+//  skip:
+//    retn 0xC
+//  }
+//}
+//
+//internal __declspec(naked) void SubSequenceTickCheck_Hook()
+//{
+//  __asm {
+//    push ebx
+//    push esi
+//    push edi
+//    push ebp
+//    push esp
+//    
+//    call IsSequencePaused
+//    
+//    pop esp
+//    pop ebp
+//    pop edi
+//    pop esi
+//    pop ebx
+//    
+//    test al, al
+//    jnz dont_update
+//    
+//    movss [ebx+0xF8], xmm0
+//    
+//  dont_update:
+//    jmp [subsequence_tick_update_post_address]
+//  }
+//}
+
+internal __declspec(naked) void SeqAct_Interp_Process_Hook()
 {
   __asm {
+    push ebp
+    mov ebp, esp
+  
+    push esp
+    push ebp
     push ebx
     push esi
     push edi
-    push ebp
-    push esp
     
     mov eax, [ebp+0x8]
     push eax
     push ecx
-    call SubSequenceTick
+    call SeqAct_Interp_Process
     pop ecx
-    add esp, 4
+    pop eax
     
-    pop esp
-    pop ebp
     pop edi
     pop esi
     pop ebx
-    
-    test al, al
-    jz skip
-    
-    push ebp
-    mov ebp, esp
-    push ebx
-    mov ebx, ecx
-    
-    jmp [subsequence_tick_post_address]
-    
-  skip:
-    retn 0xC
-  }
-}
-
-internal __declspec(naked) void SubSequenceTickCheck_Hook()
-{
-  __asm {
-    push ebx
-    push esi
-    push edi
-    push ebp
-    push esp
-    
-    call IsSequencePaused
-    
-    pop esp
     pop ebp
-    pop edi
-    pop esi
-    pop ebx
+    pop esp
     
-    test al, al
-    jnz dont_update
+    push 0xFFFFFFFF
     
-    movss [ebx+0xF8], xmm0
-    
-  dont_update:
-    jmp [subsequence_tick_update_post_address]
+    jmp [seqact_interp_proccess_post_address]
   }
 }
 
@@ -672,15 +710,22 @@ internal void PatchSkipNode(BioConversationControllerVTable *vtable)
 //  WriteMemory(patch_ptr, jmp8_opcode, 1);
 //}
 
-internal void PatchSubSequence()
+//internal void PatchSubSequence()
+//{
+//  void *patch_ptr = (void *)0x006E8560;
+//  subsequence_tick_post_address = (u8 *)patch_ptr + 6;
+//  WriteDetour(patch_ptr, &SubSequenceTick_Hook, 1);
+//  
+//  patch_ptr = (void *)0x006E86EB;
+//  subsequence_tick_update_post_address = (u8 *)patch_ptr + 0x8;
+//  WriteDetour(patch_ptr, &SubSequenceTickCheck_Hook, 3);
+//}
+
+internal void PatchSeqActInterpProcess()
 {
-  void *patch_ptr = (void *)0x006E8560;
-  subsequence_tick_post_address = (u8 *)patch_ptr + 6;
-  WriteDetour(patch_ptr, &SubSequenceTick_Hook, 1);
-  
-  patch_ptr = (void *)0x006E86EB;
-  subsequence_tick_update_post_address = (u8 *)patch_ptr + 0x8;
-  WriteDetour(patch_ptr, &SubSequenceTickCheck_Hook, 3);
+  void *patch_ptr = (void *)0x006E6860;
+  seqact_interp_proccess_post_address = (u8 *)patch_ptr + 0x5;
+  WriteDetour(patch_ptr, &SeqAct_Interp_Process_Hook, 0);
 }
 
 internal void PatchExecutable()
@@ -714,7 +759,9 @@ internal void PatchExecutable()
   //NOTE(adm244): fixes subtitles disappearing after VO is finished
   //PatchIsVOOverCheck(&baseModuleInfo);
   
-  PatchSubSequence();
+  //PatchSubSequence();
+  
+  PatchSeqActInterpProcess();
 }
 
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)
