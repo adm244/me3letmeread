@@ -158,24 +158,59 @@ SeqAct_Interp *pausedSequence = 0;
 
 internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
 {
+  //TODO(adm244): check if player is in a conversation game mode
+  
+  //TODO(adm244): calculate when to pause
+  //TODO(adm244): patch SelectReply so it also resumes (or prevents a pause) a sequence
+  
   if (sequence->flags & SeqAct_IsPaused)
     return;
   
-  if (sequence->flags & 0x80000000)
+  if (sequence->flags & SeqAct_Patch_WasPaused)
     return;
   
   InterpData *interpData = sequence->interpData;
   if (!interpData) 
     return;
   
-  //TODO(adm244): check if there's any VO\FOVO's
-  //TODO(adm244): calculate when to pause
-  //TODO(adm244): patch SelectReply so it also resumes (or prevents a pause) a sequence
+  bool hasVOElements = false;
+  bool hasFaceOnlyVO = false;
   
-  r32 newTime = sequence->currentTime + (dt * sequence->speedMultiplier);
-  if (newTime > interpData->duration) {
-    sequence->flags |= SeqAct_IsPaused | 0x80000000;
-    pausedSequence = sequence;
+  InterpGroupInst **groupInsts = sequence->groupInsts;
+  for (int i = 0; i < sequence->groupInstsCount; ++i) {
+    InterpGroup *group = groupInsts[i]->group;
+    BioInterpTrack **tracks = group->tracks;
+    for (int j = 0; j < group->tracksCount; ++j) {
+      BioInterpTrack *track = tracks[j];
+      if (track->trackKeysCount == 0)
+        continue;
+      
+      switch ((u32)track->vtable) {
+        case 0x018095D8: {
+          //TODO(adm244): check if string by strRefId is not empty
+          hasVOElements = true;
+        } break;
+        case 0x01850500: {
+          hasFaceOnlyVO = true;
+        } break;
+        
+        default:
+          break;
+      }
+    }
+  }
+  
+  if (!hasVOElements)
+    return;
+  
+  if (hasFaceOnlyVO) {
+    // do nothing at the moment
+  } else {
+    r32 newTime = sequence->currentTime + (dt * sequence->speedMultiplier);
+    if (newTime > interpData->duration) {
+      sequence->flags |= SeqAct_IsPaused | SeqAct_Patch_WasPaused;
+      pausedSequence = sequence;
+    }
   }
 }
 

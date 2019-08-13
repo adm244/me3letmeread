@@ -35,6 +35,7 @@ enum SeqAct_Interp_Flags {
   SeqAct_IsPaused = 0x4,
   SeqAct_IsLooped = 0x40,
   SeqAct_IsCountDown = 0x400,
+  SeqAct_Patch_WasPaused = 0x80000000,
 };
 
 enum BioConversation_DialogFlags {
@@ -235,26 +236,38 @@ struct InterpData {
 };
 assert_size(InterpData, 0x94);
 
-struct BioInterpTrack {
-  void *vtable; // 0x0
+struct StaticString {
+  u32 unk00;
+  u32 unk04;
+  char text[0]; // 0x08, null-terminated
 };
+//NOTE(adm244) last member sizeof is 0, since it has 0 elements (sizeof(char *) * 0)
+assert_size(StaticString, 0x08);
 
 struct BioTrackKey {
-  u32 unk00;
+  StaticString *name;
   u32 unk04;
   r32 time; // 0x08
 };
 assert_size(BioTrackKey, 0x0C);
 
-struct BioEvtSysTrackVOElements {
+struct BioInterpTrack {
   void *vtable; // 0x0
   u8 unk04[0x5C-0x04];
   BioTrackKey *trackKeys; // 0x5C
   u32 trackKeysCount; // 0x60
+};
+
+struct BioEvtSysTrackVOElements {
+  BioInterpTrack interpTrack; // 0x0
   u32 unk64;
   u32 unk68;
   u32 unk6C;
   u32 textRefId; // 0x70
+};
+
+struct SFXInterpTrackPlayFaceOnlyVO {
+  BioInterpTrack interpTrack; // 0x0
 };
 
 struct InterpGroup {
