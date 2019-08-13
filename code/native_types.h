@@ -30,6 +30,13 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 #define assert_size(obj, size) static_assert(sizeof(obj) == size, "Size of " #obj " should be " #size)
 
+enum SeqAct_Interp_Flags {
+  SeqAct_IsRunning = 0x2,
+  SeqAct_IsPaused = 0x4,
+  SeqAct_IsLooped = 0x40,
+  SeqAct_IsCountDown = 0x400,
+};
+
 enum BioConversation_DialogFlags {
   Dialog_Ambient = 0x80,
 };

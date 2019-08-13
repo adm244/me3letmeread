@@ -154,9 +154,29 @@ internal BioWorldInfo * GetBioWorldInfo()
 //  return PauseSequence;
 //}
 
+SeqAct_Interp *pausedSequence = 0;
+
 internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
 {
+  if (sequence->flags & SeqAct_IsPaused)
+    return;
   
+  if (sequence->flags & 0x80000000)
+    return;
+  
+  InterpData *interpData = sequence->interpData;
+  if (!interpData) 
+    return;
+  
+  //TODO(adm244): check if there's any VO\FOVO's
+  //TODO(adm244): calculate when to pause
+  //TODO(adm244): patch SelectReply so it also resumes (or prevents a pause) a sequence
+  
+  r32 newTime = sequence->currentTime + (dt * sequence->speedMultiplier);
+  if (newTime > interpData->duration) {
+    sequence->flags |= SeqAct_IsPaused | 0x80000000;
+    pausedSequence = sequence;
+  }
 }
 
 //internal bool ShouldReply(BioConversationController *conversation)
@@ -274,6 +294,12 @@ internal bool __cdecl SkipNode(BioConversationController *controller)
     PauseSequence = false;
     return false;
   }*/
+  
+  if (pausedSequence) {
+    pausedSequence->flags &= ~SeqAct_IsPaused;
+    pausedSequence = 0;
+    return false;
+  }
   
   return true;
 }
