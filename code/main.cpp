@@ -166,12 +166,19 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
   if (sequence->flags & SeqAct_IsPaused)
     return;
   
-  if (sequence->flags & SeqAct_Patch_WasPaused)
-    return;
-  
   InterpData *interpData = sequence->interpData;
   if (!interpData) 
     return;
+  
+  r32 newTime = sequence->currentTime + (dt * sequence->speedMultiplier);
+  bool sequenceEnded = (newTime > interpData->duration);
+  
+  if (sequence->flags & SeqAct_Patch_WasPaused) {
+    if (sequenceEnded) {
+      sequence->flags &= (~SeqAct_Patch_WasPaused);
+    }
+    return;
+  }
   
   bool hasVOElements = false;
   bool hasFaceOnlyVO = false;
@@ -206,9 +213,8 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
   if (hasFaceOnlyVO) {
     // do nothing at the moment
   } else {
-    r32 newTime = sequence->currentTime + (dt * sequence->speedMultiplier);
-    if (newTime > interpData->duration) {
-      sequence->flags |= SeqAct_IsPaused | SeqAct_Patch_WasPaused;
+    if (sequenceEnded) {
+      sequence->flags |= (SeqAct_IsPaused | SeqAct_Patch_WasPaused);
       pausedSequence = sequence;
     }
   }
