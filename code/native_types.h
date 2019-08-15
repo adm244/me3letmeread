@@ -35,6 +35,8 @@ enum SeqAct_Interp_Flags {
   SeqAct_IsPaused = 0x4,
   SeqAct_IsLooped = 0x40,
   SeqAct_IsCountDown = 0x400,
+  SeqAct_Patch_FirstFOVOPlayed = 0x20000000,
+  SeqAct_Patch_WasFOVOPaused = 0x40000000,
   SeqAct_Patch_WasPaused = 0x80000000,
 };
 

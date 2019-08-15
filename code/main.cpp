@@ -189,8 +189,6 @@ SeqAct_Interp *pausedSequence = 0;
 internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
 {
   //TODO(adm244): check if player is in a conversation game mode
-  
-  //TODO(adm244): calculate when to pause
   //TODO(adm244): patch SelectReply so it also resumes (or prevents a pause) a sequence
   
   if (sequence->flags & SeqAct_IsPaused)
@@ -205,13 +203,17 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
   
   if (sequence->flags & SeqAct_Patch_WasPaused) {
     if (sequenceEnded) {
-      sequence->flags &= (~SeqAct_Patch_WasPaused);
+      sequence->flags &= (~SeqAct_Patch_WasPaused | SeqAct_Patch_WasFOVOPaused | SeqAct_Patch_FirstFOVOPlayed);
     }
     return;
   }
   
   bool hasVOElements = false;
   bool hasFaceOnlyVO = false;
+  
+  BioEvtSysTrackVOElements *voTrack = 0;
+  int fovoTracksCount = 0;
+  SFXInterpTrackPlayFaceOnlyVO *fovoTracks[5] = {};
   
   InterpGroupInst **groupInsts = sequence->groupInsts;
   for (int i = 0; i < sequence->groupInstsCount; ++i) {
@@ -225,20 +227,22 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
       switch ((u32)track->vtable) {
         case 0x018095D8: {
           BioString voText;
-          BioEvtSysTrackVOElements *voTrack = (BioEvtSysTrackVOElements *)track;
+          BioEvtSysTrackVOElements *_voTrack = (BioEvtSysTrackVOElements *)track;
           
           //TODO(adm244): cache BioString's
           BioString_Create(&voText, 0);
           
-          bool textFound = GetTextByRefId(voTrack->textRefId, &voText);
+          bool textFound = GetTextByRefId(_voTrack->textRefId, &voText);
           //TODO(adm244): check actual string contents
           if (textFound && (voText.length > 3)) {
+            voTrack = _voTrack;
             hasVOElements = true;
           }
           
           BioString_Free(&voText);
         } break;
         case 0x01850500: {
+          fovoTracks[fovoTracksCount++] = (SFXInterpTrackPlayFaceOnlyVO *)track;
           hasFaceOnlyVO = true;
         } break;
         
@@ -248,11 +252,34 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
     }
   }
   
-  if (!hasVOElements)
+  if (!hasVOElements && !hasFaceOnlyVO)
     return;
   
   if (hasFaceOnlyVO) {
-    // do nothing at the moment
+    if (sequenceEnded) {
+      sequence->flags |= (SeqAct_IsPaused | SeqAct_Patch_WasPaused);
+      pausedSequence = sequence;
+    } else {
+      if (sequence->flags & SeqAct_Patch_WasFOVOPaused) {
+        sequence->flags &= ~(SeqAct_Patch_WasFOVOPaused);
+      } else {
+        for (int i = 0; i < fovoTracksCount; ++i) {
+          for (int key = 0; key < fovoTracks[i]->interpTrack.trackKeysCount; ++key) {
+            BioTrackKey *currentKey = &fovoTracks[i]->interpTrack.trackKeys[key];
+            if ((sequence->currentTime < currentKey->time) && (newTime >= currentKey->time)) {
+              if (!(sequence->flags & SeqAct_Patch_FirstFOVOPlayed) && (key == 0) && !hasVOElements) {
+                sequence->flags |= (SeqAct_Patch_FirstFOVOPlayed);
+                return;
+              }
+              
+              sequence->flags |= (SeqAct_IsPaused | SeqAct_Patch_WasPaused | SeqAct_Patch_WasFOVOPaused);
+              pausedSequence = sequence;
+              return;
+            }
+          }
+        }
+      }
+    }
   } else {
     if (sequenceEnded) {
       sequence->flags |= (SeqAct_IsPaused | SeqAct_Patch_WasPaused);
@@ -379,6 +406,9 @@ internal bool __cdecl SkipNode(BioConversationController *controller)
   
   if (pausedSequence) {
     pausedSequence->flags &= ~SeqAct_IsPaused;
+    if (pausedSequence->flags & SeqAct_Patch_WasFOVOPaused) {
+      pausedSequence->flags &= ~(SeqAct_Patch_WasPaused);
+    }
     pausedSequence = 0;
     return false;
   }
