@@ -43,13 +43,43 @@ OTHER DEALINGS IN THE SOFTWARE.
 //internal _BioConversation_IsAmbient BioConversation_IsAmbient = 0;
 //internal _BioConversation_GetReplyText_Internal BioConversation_GetReplyText_Internal = (_BioConversation_GetReplyText_Internal)0x00B32440;
 
+typedef BioString * (__stdcall *_BioString_Create)(BioString *text, int capacity);
+//typedef void * (__usercall *_BioString_Allocate<eax>)(BioString *text, int elementSize, int count<eax>);
+//typedef BioString *(__usercall *_BioString_Clone<eax>)(BioString *src<edi>, BioString *dest<esi>);
+typedef void (__thiscall *_BioString_Free)(BioString *text);
+
+internal _BioString_Create BioString_Create = (_BioString_Create)0x0041F210;
+//internal _BioString_Allocate BioString_Allocate = (_BioString_Allocate)0x00525310;
+//internal _BioString_Clone BioString_Clone = (_BioString_Clone)0x0041EED0;
+internal _BioString_Free BioString_Free = (_BioString_Free)0x00BF63D0;
+
 //internal bool PauseWorld = false;
 
-internal BioWorldInfo * GetBioWorldInfo()
+//internal BioWorldInfo * GetBioWorldInfo()
+//{
+//  World *world = *(World **)0x1AA0D20;
+//  Level *level = world->level;
+//  return level->unk->worldInfo;
+//}
+
+internal bool GetTextByRefId(u32 strRefId, BioString *text)
 {
-  World *world = *(World **)0x1AA0D20;
-  Level *level = world->level;
-  return level->unk->worldInfo;
+// bool __usercall Unk001__GetTextByRefId@<al>(void *unk001@<edi>, int strRefId, BioString *text, int unk1, int unk0);
+  void *GetTextByRefId_Native = (void *)0x0049F3E0;
+  
+  __asm {
+    mov edi, dword ptr ds:[01A97B8Ch]
+    mov eax, [edi+6ACh]
+    push 0
+    push eax
+    
+    mov eax, text
+    mov ecx, strRefId
+    push eax
+    push ecx
+    
+    call GetTextByRefId_Native
+  }
 }
 
 //internal bool PauseSequence = false;
@@ -194,8 +224,19 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
       
       switch ((u32)track->vtable) {
         case 0x018095D8: {
-          //TODO(adm244): check if string by strRefId is not empty
-          hasVOElements = true;
+          BioString voText;
+          BioEvtSysTrackVOElements *voTrack = (BioEvtSysTrackVOElements *)track;
+          
+          //TODO(adm244): cache BioString's
+          BioString_Create(&voText, 0);
+          
+          bool textFound = GetTextByRefId(voTrack->textRefId, &voText);
+          //TODO(adm244): check actual string contents
+          if (textFound && (voText.length > 3)) {
+            hasVOElements = true;
+          }
+          
+          BioString_Free(&voText);
         } break;
         case 0x01850500: {
           hasFaceOnlyVO = true;
