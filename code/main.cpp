@@ -44,12 +44,12 @@ OTHER DEALINGS IN THE SOFTWARE.
 //internal _BioConversation_GetReplyText_Internal BioConversation_GetReplyText_Internal = (_BioConversation_GetReplyText_Internal)0x00B32440;
 
 typedef BioString * (__stdcall *_BioString_Create)(BioString *text, int capacity);
-//typedef void * (__usercall *_BioString_Allocate<eax>)(BioString *text, int elementSize, int count<eax>);
+//typedef void * (__usercall *_MemoryManager_Allocate<eax>)(void *obj, int elementSize, int count<eax>);
 //typedef BioString *(__usercall *_BioString_Clone<eax>)(BioString *src<edi>, BioString *dest<esi>);
 typedef void (__thiscall *_BioString_Free)(BioString *text);
 
 internal _BioString_Create BioString_Create = (_BioString_Create)0x0041F210;
-//internal _BioString_Allocate BioString_Allocate = (_BioString_Allocate)0x00525310;
+//internal _MemoryManager_Allocate MemoryManager_Allocate = (_MemoryManager_Allocate)0x00525310;
 //internal _BioString_Clone BioString_Clone = (_BioString_Clone)0x0041EED0;
 internal _BioString_Free BioString_Free = (_BioString_Free)0x00BF63D0;
 
@@ -203,7 +203,7 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
   
   if (sequence->flags & SeqAct_Patch_WasPaused) {
     if (sequenceEnded) {
-      sequence->flags &= (~SeqAct_Patch_WasPaused | SeqAct_Patch_WasFOVOPaused | SeqAct_Patch_FirstFOVOPlayed);
+      sequence->flags &= ~(SeqAct_Patch_WasPaused | SeqAct_Patch_WasFOVOPaused | SeqAct_Patch_FirstFOVOPlayed);
     }
     return;
   }
