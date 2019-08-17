@@ -186,10 +186,70 @@ internal bool GetTextByRefId(u32 strRefId, BioString *text)
 
 SeqAct_Interp *pausedSequence = 0;
 
+internal bool IsStringEmpty(u32 textRefId)
+{
+  bool result = true;
+  BioString text;
+  
+  //TODO(adm244): cache BioString's
+  //TODO(adm244): check actual string contents
+  BioString_Create(&text, 0);
+  bool textFound = GetTextByRefId(textRefId, &text);
+  result = !(textFound && (text.length > 3));
+  BioString_Destroy(&text);
+  
+  return result;
+}
+
+internal void PauseSequence(SeqAct_Interp *sequence, u32 flags)
+{
+  BioWorldInfo *worldInfo = GetBioWorldInfo();
+  if (worldInfo) {
+    BioConversationManager *manager = worldInfo->conversationManager;
+    if (manager) {
+      BioConversationController **controllers = manager->controllers;
+      for (int i = 0; i < manager->controllersCount; ++i) {
+        bool isAmbient = controllers[i]->vtable->IsCurrentlyAmbient(controllers[i]);
+        if (!isAmbient) {
+          BioConversation *conversation = controllers[i]->conversation;
+          if (conversation) {
+            BioConversationEntry currentEntry = conversation->entriesList[controllers[i]->currentEntryIndex];
+            bool playerShouldChoose = (currentEntry.repliesCount > 1);
+            if (playerShouldChoose) {
+              if (controllers[i]->currentReplyIndex == -1) {
+                for (int j = 0; j < currentEntry.repliesCount; ++j) {
+                  bool isParaphraseEmpty = IsStringEmpty(currentEntry.replies[j].textRefId);
+                  if (!isParaphraseEmpty)
+                    return;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  sequence->flags |= (SeqAct_IsPaused | SeqAct_Patch_WasPaused | flags);
+  pausedSequence = sequence;
+}
+
+internal void PauseSequence(SeqAct_Interp *sequence)
+{
+  PauseSequence(sequence, 0);
+}
+
+internal void ResumeSequence(SeqAct_Interp *sequence)
+{
+  pausedSequence->flags &= ~SeqAct_IsPaused;
+  if (pausedSequence->flags & SeqAct_Patch_WasFOVOPaused) {
+    pausedSequence->flags &= ~(SeqAct_Patch_WasPaused);
+  }
+  pausedSequence = 0;
+}
+
 internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
 {
-  //TODO(adm244): patch SelectReply so it also resumes (or prevents a pause) a sequence
-  
   BioWorldInfo *worldInfo = GetBioWorldInfo();
   if (!worldInfo)
     return;
@@ -241,22 +301,14 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
       
       switch ((u32)track->vtable) {
         case 0x018095D8: {
-          BioString voText;
           BioEvtSysTrackVOElements *_voTrack = (BioEvtSysTrackVOElements *)track;
-          
-          //TODO(adm244): cache BioString's
-          BioString_Create(&voText, 0);
-          
-          bool textFound = GetTextByRefId(_voTrack->textRefId, &voText);
-          //TODO(adm244): check actual string contents
-          if (textFound && (voText.length > 3)) {
+          if (!IsStringEmpty(_voTrack->textRefId)) {
             voTrack = _voTrack;
             hasVOElements = true;
           }
-          
-          BioString_Destroy(&voText);
         } break;
         case 0x01850500: {
+          //TODO(adm244): check if FOVO's text is empty
           fovoTracks[fovoTracksCount++] = (SFXInterpTrackPlayFaceOnlyVO *)track;
           hasFaceOnlyVO = true;
         } break;
@@ -272,8 +324,7 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
   
   if (hasFaceOnlyVO) {
     if (sequenceEnded) {
-      sequence->flags |= (SeqAct_IsPaused | SeqAct_Patch_WasPaused);
-      pausedSequence = sequence;
+      PauseSequence(sequence);
     } else {
       if (sequence->flags & SeqAct_Patch_WasFOVOPaused) {
         sequence->flags &= ~(SeqAct_Patch_WasFOVOPaused);
@@ -287,8 +338,7 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
                 return;
               }
               
-              sequence->flags |= (SeqAct_IsPaused | SeqAct_Patch_WasPaused | SeqAct_Patch_WasFOVOPaused);
-              pausedSequence = sequence;
+              PauseSequence(sequence, SeqAct_Patch_WasFOVOPaused);
               return;
             }
           }
@@ -297,8 +347,7 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
     }
   } else {
     if (sequenceEnded) {
-      sequence->flags |= (SeqAct_IsPaused | SeqAct_Patch_WasPaused);
-      pausedSequence = sequence;
+      PauseSequence(sequence);
     }
   }
 }
@@ -420,11 +469,7 @@ internal bool __cdecl SkipNode(BioConversationController *controller)
   }*/
   
   if (pausedSequence) {
-    pausedSequence->flags &= ~SeqAct_IsPaused;
-    if (pausedSequence->flags & SeqAct_Patch_WasFOVOPaused) {
-      pausedSequence->flags &= ~(SeqAct_Patch_WasPaused);
-    }
-    pausedSequence = 0;
+    ResumeSequence(pausedSequence);
     return false;
   }
   

@@ -75,7 +75,7 @@ struct BioWorldInfo;
 struct BioSeqAct_FaceOnlyVO;
 struct BioPlayerController;
 
-typedef void (__stdcall *_BioConversationManager_UpdateConversation)(BioConversationManager *manager, r32 dt);
+typedef void (__thiscall *_BioConversationManager_UpdateConversation)(BioConversationManager *manager, r32 dt);
 typedef void (__stdcall *_BioConversationController_UpdateConversation)(BioConversationController *controller, r32 dt);
 typedef void (__thiscall *_BioConversationController_SkipNode)(BioConversationController *controller);
 typedef bool (__thiscall *_BioConversationController_IsCurrentlyAmbient)(BioConversationController *controller);
@@ -106,6 +106,17 @@ struct StaticString {
 //NOTE(adm244) last member sizeof is 0, since it has 0 elements (sizeof(char *) * 0)
 assert_size(StaticString, 0x08);
 
+struct BioConversationEntryReply {
+  u32 unk00;
+  u32 unk04;
+  u32 unk08;
+  u32 index; // 0x0C
+  u32 textRefId; // 0x10
+  // 0x0 - Default, 0x5 - Investigate
+  u32 category; // 0x14
+};
+assert_size(BioConversationEntryReply, 0x18);
+
 struct BioConversationEntry {
   u32 unk00;
   u32 unk04;
@@ -121,11 +132,11 @@ struct BioConversationEntry {
   u32 cameraIntimacy; // 0x2C
   u32 unk30;
   u32 unk34;
-  void *replyList; // 0x38
-  u32 unk3C;
+  BioConversationEntryReply *replies; // 0x38
+  u32 repliesCount; // 0x3C
   u32 unk40;
-  void *speakerList; // 0x44
-  u32 unk48;
+  void *speaker; // 0x44
+  u32 speakersCount; // 0x48
   u32 unk4C;
   u32 speakerIndex; // 0x50
   u32 listenerIndex; // 0x54
@@ -165,12 +176,6 @@ struct BioConversationManagerVTable {
 };
 assert_size(BioConversationManagerVTable, 0x17C);
 
-struct BioConversationManager {
-  BioConversationManagerVTable *vtable; // 0x0
-  u8 unk04[0xAC-0x4];
-};
-assert_size(BioConversationManager, 0xAC);
-
 struct BioConversationControllerVTable {
   u8 unk0[0x15C];
   _BioConversationController_SkipNode SkipNode; // 0x15C
@@ -201,6 +206,15 @@ struct BioConversationController {
   u32 unkFlags; // 0x2A4
 };
 assert_size(BioConversationController, 0x2A8);
+
+struct BioConversationManager {
+  BioConversationManagerVTable *vtable; // 0x0
+  u8 unk04[0x90-0x4];
+  BioConversationController **controllers; // 0x90
+  u32 controllersCount; // 0x94
+  u8 unk98[0xAC-0x98];
+};
+assert_size(BioConversationManager, 0xAC);
 
 struct BioWorldInfoVTable {
   u8 unk00[0x444];
@@ -389,7 +403,7 @@ struct BioConversationEntryReply {
   u32 unk8;
   u32 unkC;
   u32 unk10;
-  // 0x0 - Defualt, 0x5 - Investigate
+  // 0x0 - Default, 0x5 - Investigate
   u32 category; // 0x14
 }; // 0x18
 assert_size(BioConversationEntryReply, 0x18);
