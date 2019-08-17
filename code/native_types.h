@@ -64,10 +64,16 @@ enum BioSeqAct_FaceOnlyVO_Flags {
   FOVO_SubConversation = 0x800,
 };
 
+enum GameModes {
+  GameMode_Conversation = 7,
+  GameMode_Cinematic = 8,
+};
+
 struct BioConversationManager;
 struct BioConversationController;
 struct BioWorldInfo;
 struct BioSeqAct_FaceOnlyVO;
+struct BioPlayerController;
 
 typedef void (__stdcall *_BioConversationManager_UpdateConversation)(BioConversationManager *manager, r32 dt);
 typedef void (__stdcall *_BioConversationController_UpdateConversation)(BioConversationController *controller, r32 dt);
@@ -75,6 +81,7 @@ typedef void (__thiscall *_BioConversationController_SkipNode)(BioConversationCo
 typedef bool (__thiscall *_BioConversationController_IsCurrentlyAmbient)(BioConversationController *controller);
 typedef bool (__thiscall *_BioConversationController_NeedToDisplayReplies)(BioConversationController *controller);
 typedef void (__thiscall *_BioWorldInfo_SetFOVOAsPlaying)(BioWorldInfo *worldInfo, BioSeqAct_FaceOnlyVO *fovo);
+typedef BioPlayerController * (__thiscall *_BioWorldInfo_GetPlayerController)(BioWorldInfo *worldInfo);
 
 /*
   Text is in UTF-16 encoding
@@ -90,6 +97,14 @@ struct BioString {
   u32 capacity; //??? 0x8
 }; // 0xC
 assert_size(BioString, 0xC);
+
+struct StaticString {
+  u32 unk00;
+  u32 unk04;
+  char text[0]; // 0x08, null-terminated
+};
+//NOTE(adm244) last member sizeof is 0, since it has 0 elements (sizeof(char *) * 0)
+assert_size(StaticString, 0x08);
 
 struct BioConversationEntry {
   u32 unk00;
@@ -188,9 +203,13 @@ struct BioConversationController {
 assert_size(BioConversationController, 0x2A8);
 
 struct BioWorldInfoVTable {
-  u8 unk00[0x458];
-  _BioWorldInfo_SetFOVOAsPlaying SetFOVOAsPlaying;
+  u8 unk00[0x444];
+  _BioWorldInfo_GetPlayerController GetPlayerController; // 0x444
+  u8 unk448[0x458-0x448];
+  _BioWorldInfo_SetFOVOAsPlaying SetFOVOAsPlaying; // 0x458
+  u8 unk45C[0x468-0x45C];
 };
+assert_size(BioWorldInfoVTable, 0x468);
 
 struct BioSubtitlesTextInfo {
   BioString text; // 0x0
@@ -208,11 +227,45 @@ struct BioSubtitles {
   u32 visible; // 0x4C
 };
 
+struct BioGameModeBase {
+  void *vtable; // 0x0
+  u8 unk04[0x2C-0x04];
+  StaticString *name; // 0x2C
+  u8 unk30[0x98-0x30];
+  u32 flags; // 0x98
+  u32 unk9C;
+};
+assert_size(BioGameModeBase, 0xA0);
+
+struct SFXGameModeManager {
+  void *vtable; // 0x0
+  u8 unk04[0x48-0x04];
+  BioGameModeBase **gameModes; // 0x48
+  u32 gameModesCount; // 0x4C
+  u8 unk50[0x70-0x50];
+  u16 currentGameMode; // 0x70
+  u16 unk72;
+};
+assert_size(SFXGameModeManager, 0x74);
+
+struct BioPlayerController {
+  void *vtable; // 0x0
+  u8 unk04[0xA90-0x04];
+  SFXGameModeManager *gameModeManager; // 0xA90
+  u8 unkA94[0xAFC-0xA94];
+};
+assert_size(BioPlayerController, 0xAFC);
+
 struct BioWorldInfo {
   BioWorldInfoVTable *vtable; // 0x0
   u8 unk04[0x648-0x04];
   u32 flags; // 0x648
-  u8 unk64C[0x7B4-0x64C];
+  u8 unk64C[0x758-0x64C];
+  BioPlayerController *playerController; // 0x758
+  u8 unk75C[0x7A8-0x75C];
+  BioConversationManager *conversationManager; // 0x7A8
+  u32 unk7AC;
+  u32 unk7B0;
   BioSubtitles *subtitles; // 0x7B4
   u8 unk7B8[0x7D4-0x7B8];
 };
@@ -237,14 +290,6 @@ struct InterpData {
   u8 unk78[0x94-0x78];
 };
 assert_size(InterpData, 0x94);
-
-struct StaticString {
-  u32 unk00;
-  u32 unk04;
-  char text[0]; // 0x08, null-terminated
-};
-//NOTE(adm244) last member sizeof is 0, since it has 0 elements (sizeof(char *) * 0)
-assert_size(StaticString, 0x08);
 
 struct BioTrackKey {
   StaticString *name;

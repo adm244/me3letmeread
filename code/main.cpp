@@ -55,12 +55,12 @@ internal _BioString_Free BioString_Free = (_BioString_Free)0x00BF63D0;
 
 //internal bool PauseWorld = false;
 
-//internal BioWorldInfo * GetBioWorldInfo()
-//{
-//  World *world = *(World **)0x1AA0D20;
-//  Level *level = world->level;
-//  return level->unk->worldInfo;
-//}
+internal BioWorldInfo * GetBioWorldInfo()
+{
+  World *world = *(World **)0x1AA0D20;
+  Level *level = world->level;
+  return level->unk->worldInfo;
+}
 
 internal bool GetTextByRefId(u32 strRefId, BioString *text)
 {
@@ -188,8 +188,23 @@ SeqAct_Interp *pausedSequence = 0;
 
 internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
 {
-  //TODO(adm244): check if player is in a conversation game mode
   //TODO(adm244): patch SelectReply so it also resumes (or prevents a pause) a sequence
+  
+  BioWorldInfo *worldInfo = GetBioWorldInfo();
+  if (!worldInfo)
+    return;
+  
+  BioPlayerController *playerController = worldInfo->vtable->GetPlayerController(worldInfo);
+  if (!playerController)
+    return;
+  
+  SFXGameModeManager *gameModeManager = playerController->gameModeManager;
+  if (!gameModeManager)
+    return;
+  
+  //TODO(adm244): support GameMode_Cinematic
+  if (gameModeManager->currentGameMode != GameMode_Conversation)
+    return;
   
   if (sequence->flags & SeqAct_IsPaused)
     return;
