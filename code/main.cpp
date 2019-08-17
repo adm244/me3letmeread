@@ -46,12 +46,12 @@ OTHER DEALINGS IN THE SOFTWARE.
 typedef BioString * (__stdcall *_BioString_Create)(BioString *text, int capacity);
 //typedef void * (__usercall *_MemoryManager_Allocate<eax>)(void *obj, int elementSize, int count<eax>);
 //typedef BioString *(__usercall *_BioString_Clone<eax>)(BioString *src<edi>, BioString *dest<esi>);
-typedef void (__thiscall *_BioString_Free)(BioString *text);
+typedef void (__thiscall *_BioString_Destroy)(BioString *text);
 
 internal _BioString_Create BioString_Create = (_BioString_Create)0x0041F210;
 //internal _MemoryManager_Allocate MemoryManager_Allocate = (_MemoryManager_Allocate)0x00525310;
 //internal _BioString_Clone BioString_Clone = (_BioString_Clone)0x0041EED0;
-internal _BioString_Free BioString_Free = (_BioString_Free)0x00BF63D0;
+internal _BioString_Destroy BioString_Destroy = (_BioString_Destroy)0x00BF63D0;
 
 //internal bool PauseWorld = false;
 
@@ -254,7 +254,7 @@ internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
             hasVOElements = true;
           }
           
-          BioString_Free(&voText);
+          BioString_Destroy(&voText);
         } break;
         case 0x01850500: {
           fovoTracks[fovoTracksCount++] = (SFXInterpTrackPlayFaceOnlyVO *)track;
