@@ -215,13 +215,12 @@ internal void PauseSequence(SeqAct_Interp *sequence, u32 flags)
           if (conversation) {
             BioConversationEntry currentEntry = conversation->entriesList[controllers[i]->currentEntryIndex];
             bool playerShouldChoose = (currentEntry.repliesCount > 1);
-            if (playerShouldChoose) {
-              if (controllers[i]->currentReplyIndex == -1) {
-                for (int j = 0; j < currentEntry.repliesCount; ++j) {
-                  bool isParaphraseEmpty = IsStringEmpty(currentEntry.replies[j].textRefId);
-                  if (!isParaphraseEmpty)
-                    return;
-                }
+            bool playerChoseReply = (controllers[i]->currentReplyIndex != -1);
+            if (playerShouldChoose && !playerChoseReply) {
+              for (int j = 0; j < currentEntry.repliesCount; ++j) {
+                bool isParaphraseEmpty = IsStringEmpty(currentEntry.replies[j].textRefId);
+                if (!isParaphraseEmpty)
+                  return;
               }
             }
           }
@@ -241,29 +240,36 @@ internal void PauseSequence(SeqAct_Interp *sequence)
 
 internal void ResumeSequence(SeqAct_Interp *sequence)
 {
-  pausedSequence->flags &= ~SeqAct_IsPaused;
+  pausedSequence->flags &= ~(SeqAct_IsPaused);
   if (pausedSequence->flags & SeqAct_Patch_WasFOVOPaused) {
     pausedSequence->flags &= ~(SeqAct_Patch_WasPaused);
   }
   pausedSequence = 0;
 }
 
+internal GameModes GetCurrentGameMode()
+{
+  GameModes result = GameMode_Default;
+
+  BioWorldInfo *worldInfo = GetBioWorldInfo();
+  if (worldInfo) {
+    BioPlayerController *playerController = worldInfo->vtable->GetPlayerController(worldInfo);
+    if (playerController) {
+      SFXGameModeManager *gameModeManager = playerController->gameModeManager;
+      if (gameModeManager) {
+        result = (GameModes)gameModeManager->currentGameMode;
+      }
+    }
+  }
+  
+  return result;
+}
+
 internal void __cdecl SeqAct_Interp_Process(SeqAct_Interp *sequence, r32 dt)
 {
-  BioWorldInfo *worldInfo = GetBioWorldInfo();
-  if (!worldInfo)
-    return;
-  
-  BioPlayerController *playerController = worldInfo->vtable->GetPlayerController(worldInfo);
-  if (!playerController)
-    return;
-  
-  SFXGameModeManager *gameModeManager = playerController->gameModeManager;
-  if (!gameModeManager)
-    return;
-  
   //TODO(adm244): support GameMode_Cinematic
-  if (gameModeManager->currentGameMode != GameMode_Conversation)
+  GameModes currentGameMode = GetCurrentGameMode();
+  if (currentGameMode != GameMode_Conversation)
     return;
   
   if (sequence->flags & SeqAct_IsPaused)
@@ -489,6 +495,17 @@ internal bool __cdecl SkipNode(BioConversationController *controller)
   }
 }*/
 
+internal bool __cdecl HideSubtitle(BioSubtitles *subtitles)
+{
+  //TODO(adm244): queue subtitles to remove them as soon as possible
+  GameModes currentGameMode = GetCurrentGameMode();
+  if (currentGameMode == GameMode_Conversation) {
+    return false;
+  }
+  
+  return true;
+}
+
 //internal void *skip_jz_dest_address = 0;
 //internal void *skip_jnz_dest_address = 0;
 //internal void *skip_post_jnz_address = 0;
@@ -503,6 +520,7 @@ internal void *skip_node_post_address = 0;
 //internal void *subsequence_tick_update_post_address = 0;
 
 internal void *seqact_interp_proccess_post_address = 0;
+internal void *hidesubtitle_post_address = 0;
 
 //internal __declspec(naked) void IsSkipped_Hook()
 //{
@@ -760,6 +778,41 @@ internal __declspec(naked) void SeqAct_Interp_Process_Hook()
   }
 }
 
+internal __declspec(naked) void HideSubtitle_Hook()
+{
+  __asm {
+    mov ebp, esp
+    and esp, 0xFFFFFFF8
+    
+    push esp
+    push ebp
+    push ebx
+    push esi
+    push edi
+    
+    mov eax, [ebp+0x8]
+    push eax
+    call HideSubtitle
+    add esp, 4
+    
+    pop edi
+    pop esi
+    pop ebx
+    pop ebp
+    pop esp
+    
+    test al, al
+    jz dont_hide
+    
+    jmp [hidesubtitle_post_address]
+    
+  dont_hide:
+    mov esp, ebp
+    pop ebp
+    retn 0x4
+  }
+}
+
 internal void * GetBioConversationControllerVTable(MODULEINFO *baseModuleInfo, void *beginAddress, void *endAddress)
 {
   wchar_t *name = L"BioConversationController";
@@ -926,6 +979,13 @@ internal void PatchSeqActInterpProcess()
   WriteDetour(patch_ptr, &SeqAct_Interp_Process_Hook, 0);
 }
 
+internal void PatchHideSubtitle()
+{
+  void *patch_ptr = (void *)0x00CBEDA1;
+  hidesubtitle_post_address = (u8 *)patch_ptr + 0x5;
+  WriteDetour(patch_ptr, &HideSubtitle_Hook, 0);
+}
+
 internal void PatchExecutable()
 {
   HANDLE processHandle = GetCurrentProcess();
@@ -960,6 +1020,7 @@ internal void PatchExecutable()
   //PatchSubSequence();
   
   PatchSeqActInterpProcess();
+  PatchHideSubtitle();
 }
 
 internal BOOL WINAPI DllMain(HMODULE loader, DWORD reason, LPVOID reserved)

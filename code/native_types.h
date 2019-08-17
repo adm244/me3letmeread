@@ -65,6 +65,7 @@ enum BioSeqAct_FaceOnlyVO_Flags {
 };
 
 enum GameModes {
+  GameMode_Default = 0,
   GameMode_Conversation = 7,
   GameMode_Cinematic = 8,
 };
